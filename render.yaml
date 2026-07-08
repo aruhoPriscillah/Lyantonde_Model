@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: primary-school-management-system
+    name: Lyantonde_Model
     runtime: python
     plan: free
     buildCommand: "./build.sh"
