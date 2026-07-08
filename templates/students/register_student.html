@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Register Student{% endblock %}
+{% block content %}
+<h3 class="mb-4">Register New Student</h3>
+<div class="card p-4" style="max-width: 700px;">
+    <form method="post">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">First Name</label>
+                {{ form.first_name }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Last Name</label>
+                {{ form.last_name }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Gender</label>
+                {{ form.gender }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Date of Birth</label>
+                {{ form.date_of_birth }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Class</label>
+                {{ form.school_class }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Boarding Status</label>
+                {{ form.boarding_status }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Date Admitted</label>
+                {{ form.date_admitted }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Guardian Name</label>
+                {{ form.guardian_name }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Guardian Phone</label>
+                {{ form.guardian_phone }}
+            </div>
+            <div class="col-12 mb-3">
+                <label class="form-label">Address</label>
+                {{ form.address }}
+            </div>
+        </div>
+        <p class="text-muted">Admission number will be generated automatically upon saving.</p>
+        <button type="submit" class="btn btn-primary">Register Student</button>
+        <a href="{% url 'students:headteacher_dashboard' %}" class="btn btn-link">Cancel</a>
+    </form>
+</div>
+{% endblock %}

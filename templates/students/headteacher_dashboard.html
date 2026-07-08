@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Headteacher Dashboard{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>Headteacher Dashboard</h3>
+    <div>
+        <a href="{% url 'students:register_student' %}" class="btn btn-primary">+ Register Student</a>
+        <a href="{% url 'students:manage_classes' %}" class="btn btn-outline-secondary">Manage Classes</a>
+
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <h2>{{ total_students }}</h2>
+            <p class="mb-0 text-muted">Active Students</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <h2>{{ total_classes }}</h2>
+            <p class="mb-0 text-muted">Classes</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card d-flex flex-row justify-content-center gap-2 align-items-center">
+            <a href="{% url 'students:export_students' 'pdf' %}" class="btn btn-outline-danger btn-sm">Export PDF</a>
+            <a href="{% url 'students:export_students' 'xlsx' %}" class="btn btn-outline-success btn-sm">Export Excel</a>
+        </div>
+    </div>
+</div>
+
+<div class="card p-3">
+    <h5>All Registered Students</h5>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Boarding Status</th>
+                    <th>Admission No.</th>
+                    <th>Full Name</th>
+                    <th>Gender</th>
+                    <th>Class</th>
+                    <th>Guardian</th>
+                    <th>Guardian Phone</th>
+                    <th>Date Admitted</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in students %}
+                <tr>
+                    <td>{{ s.get_boarding_status_display }}</td>
+                    <td>{{ s.admission_number }}</td>
+                    <td>{{ s.full_name }}</td>
+                    <td>{{ s.get_gender_display }}</td>
+                    <td>{{ s.school_class|default:"-" }}</td>
+                    <td>{{ s.guardian_name }}</td>
+                    <td>{{ s.guardian_phone }}</td>
+                    <td>{{ s.date_admitted }}</td>
+                    <td><a href="{% url 'students:student_detail' s.pk %}" class="btn btn-sm btn-outline-primary">View</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="text-center text-muted">No students registered yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

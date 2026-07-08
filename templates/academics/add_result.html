@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Add Result{% endblock %}
+{% block content %}
+<h3 class="mb-4">Add Result &mdash; {{ school_class }}</h3>
+<div class="card p-4" style="max-width:600px;">
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3"><label class="form-label">Student</label>{{ form.student }}</div>
+        <div class="mb-3"><label class="form-label">Subject</label>{{ form.subject }}</div>
+        <div class="row">
+            <div class="col-md-6 mb-3"><label class="form-label">Term</label>{{ form.term }}</div>
+            <div class="col-md-6 mb-3"><label class="form-label">Year</label>{{ form.year }}</div>
+        </div>
+        <div class="mb-3"><label class="form-label">Score (out of 100)</label>{{ form.score }}</div>
+        <div class="mb-3"><label class="form-label">Remarks (optional)</label>{{ form.remarks }}</div>
+        <button type="submit" class="btn btn-primary">Save Result</button>
+        <a href="{% url 'academics:teacher_dashboard' %}" class="btn btn-link">Cancel</a>
+    </form>
+</div>
+{% endblock %}

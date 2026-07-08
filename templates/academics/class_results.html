@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Class Results{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>Results &mdash; {{ school_class }}</h3>
+    <div>
+        <a href="{% url 'academics:export_results' 'pdf' %}" class="btn btn-outline-danger btn-sm">Export PDF</a>
+        <a href="{% url 'academics:export_results' 'xlsx' %}" class="btn btn-outline-success btn-sm">Export Excel</a>
+    </div>
+</div>
+<div class="card p-3">
+    <table class="table table-hover">
+        <thead><tr><th>Admission No.</th><th>Name</th><th>Subject</th><th>Term</th><th>Year</th><th>Score</th><th>Grade</th><th>Remarks</th></tr></thead>
+        <tbody>
+        {% for r in results %}
+            <tr>
+                <td>{{ r.student.admission_number }}</td>
+                <td>{{ r.student.full_name }}</td>
+                <td>{{ r.subject }}</td>
+                <td>{{ r.get_term_display }}</td>
+                <td>{{ r.year }}</td>
+                <td>{{ r.score }}</td>
+                <td>{{ r.grade }}</td>
+                <td>{{ r.remarks }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="8" class="text-center text-muted">No results recorded yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ student.full_name }}{% endblock %}
+{% block content %}
+<h3>{{ student.full_name }} <small class="text-muted">({{ student.admission_number }})</small></h3>
+<div class="card p-4 mt-3" style="max-width:600px;">
+    <p><strong>Class:</strong> {{ student.school_class|default:"-" }}</p>
+    <p><strong>Gender:</strong> {{ student.get_gender_display }}</p>
+    <p><strong>Date of Birth:</strong> {{ student.date_of_birth }}</p>
+    <p><strong>Guardian:</strong> {{ student.guardian_name }} ({{ student.guardian_phone }})</p>
+    <p><strong>Address:</strong> {{ student.address|default:"-" }}</p>
+    <p><strong>Date Admitted:</strong> {{ student.date_admitted }}</p>
+    <p><strong>Boarding Status:</strong> {{ student.get_boarding_status_display }}</p>
+</div>
+{% endblock %}
