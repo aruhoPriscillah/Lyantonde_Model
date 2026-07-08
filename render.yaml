@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: Lyantonde-Model
+    name: lyantonde-model
     runtime: python
     plan: free
     buildCommand: "./build.sh"
