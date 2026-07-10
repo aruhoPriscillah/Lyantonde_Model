@@ -27,15 +27,23 @@ class Result(models.Model):
 
     def grade(self):
         s = float(self.score)
+        if s >= 90:
+            return "D1"
         if s >= 80:
-            return "A"
+            return "D2"
         if s >= 70:
-            return "B"
+            return "C3"
         if s >= 60:
-            return "C"
+            return "C4"
+        if s >= 55:
+            return "C5"
         if s >= 50:
-            return "D"
-        return "F"
+            return "C6"
+        if s >= 45:
+            return "P7"
+        if s >= 40:
+            return "P8"
+        return "F9"
 
     def __str__(self):
         return f"{self.student.admission_number} - {self.subject} ({self.term} {self.year}): {self.score}"
