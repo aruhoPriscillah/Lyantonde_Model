@@ -6,13 +6,60 @@ from accounts.decorators import role_required
 from accounts.models import User
 from reportsapp.utils import export_excel, export_pdf
 from students.models import SchoolClass
+from fees.forms import TermYearFilterForm
 from .forms import ResultForm
-from .models import Result
+from .models import Result, Subject
+
+import datetime
+
+CURRENT_YEAR = datetime.date.today().year
+DEFAULT_TERM = "TERM1"
 
 
 def _get_teacher_class(user):
     """A teacher is assumed to be in charge of at most one class."""
     return SchoolClass.objects.filter(class_teacher=user).first()
+
+
+def pivot_class_results(school_class, term, year, students_qs=None):
+    """
+    Build a mark-sheet-style table: one row per student, one column per subject.
+    """
+    if school_class is None:
+        return [], []
+
+    students = students_qs if students_qs is not None else school_class.students.filter(is_active=True)
+
+    results = (
+        Result.objects.select_related("subject", "student")
+        .filter(student__school_class=school_class, term=term, year=year)
+    )
+
+    subject_ids_with_results = sorted(
+        {r.subject_id for r in results},
+        key=lambda sid: next(r.subject.name for r in results if r.subject_id == sid),
+    )
+    subjects = list(Subject.objects.filter(id__in=subject_ids_with_results).order_by("name"))
+
+    lookup = {(r.student_id, r.subject_id): r for r in results}
+
+    rows = []
+    for student in students:
+        scores = []
+        total = 0
+        count = 0
+        for subject in subjects:
+            result = lookup.get((student.id, subject.id))
+            if result is not None:
+                scores.append(result)
+                total += result.score
+                count += 1
+            else:
+                scores.append(None)
+        average = (total / count) if count else None
+        rows.append({"student": student, "scores": scores, "total": total, "average": average})
+
+    return subjects, rows
 
 
 @role_required(User.Role.TEACHER)
@@ -51,44 +98,75 @@ def add_result(request):
 @role_required(User.Role.TEACHER)
 def class_results(request):
     school_class = _get_teacher_class(request.user)
-    results = (
-        Result.objects.select_related("student", "subject")
-        .filter(student__school_class=school_class)
-        if school_class
-        else Result.objects.none()
-    )
+
+    filter_form = TermYearFilterForm(request.GET or {"term": DEFAULT_TERM, "year": CURRENT_YEAR})
+    term, year = DEFAULT_TERM, CURRENT_YEAR
+    if filter_form.is_valid():
+        term = filter_form.cleaned_data["term"]
+        year = filter_form.cleaned_data["year"]
+
+    subjects, rows = pivot_class_results(school_class, term, year)
+
     return render(
-        request, "academics/class_results.html", {"results": results, "school_class": school_class}
+        request,
+        "academics/class_results.html",
+        {
+            "school_class": school_class,
+            "subjects": subjects,
+            "rows": rows,
+            "filter_form": filter_form,
+            "term": term,
+            "year": year,
+        },
     )
 
 
 @role_required(User.Role.TEACHER, User.Role.HEADTEACHER)
 def export_results(request, filetype):
+    term = request.GET.get("term", DEFAULT_TERM)
+    year = int(request.GET.get("year", CURRENT_YEAR))
+
     if request.user.role == User.Role.TEACHER:
         school_class = _get_teacher_class(request.user)
-        results = Result.objects.select_related("student", "subject").filter(
-            student__school_class=school_class
-        )
-        title = f"Results - {school_class}" if school_class else "Results"
+        title = f"Mark Sheet - {school_class} - {term} {year}" if school_class else "Mark Sheet"
+        subjects, rows = pivot_class_results(school_class, term, year)
     else:
-        results = Result.objects.select_related("student", "subject").all()
-        title = "All Results"
+        title = f"Mark Sheet - All Classes - {term} {year}"
+        all_results = Result.objects.select_related("student", "subject").filter(term=term, year=year)
+        subject_ids = sorted(
+            {r.subject_id for r in all_results},
+            key=lambda sid: next(r.subject.name for r in all_results if r.subject_id == sid),
+        )
+        subjects = list(Subject.objects.filter(id__in=subject_ids).order_by("name"))
+        lookup = {(r.student_id, r.subject_id): r for r in all_results}
+        students = {r.student for r in all_results}
+        rows = []
+        for student in sorted(students, key=lambda s: s.admission_number):
+            scores = []
+            total = 0
+            count = 0
+            for subject in subjects:
+                result = lookup.get((student.id, subject.id))
+                if result is not None:
+                    scores.append(result)
+                    total += result.score
+                    count += 1
+                else:
+                    scores.append(None)
+            average = (total / count) if count else None
+            rows.append({"student": student, "scores": scores, "total": total, "average": average})
 
-    headers = ["Admission No.", "Name", "Subject", "Term", "Year", "Score", "Grade", "Remarks"]
-    rows = [
-        [
-            r.student.admission_number,
-            r.student.full_name,
-            r.subject.name,
-            r.get_term_display(),
-            r.year,
-            r.score,
-            r.grade(),
-            r.remarks,
-        ]
-        for r in results
-    ]
-    fname = "results_report"
+    headers = ["Admission No.", "Name"] + [s.name for s in subjects] + ["Total", "Average"]
+    export_rows = []
+    for row in rows:
+        line = [row["student"].admission_number, row["student"].full_name]
+        for result in row["scores"]:
+            line.append(f"{result.score:.1f} ({result.grade()})" if result else "-")
+        line.append(f"{row['total']:.1f}")
+        line.append(f"{row['average']:.1f}" if row["average"] is not None else "-")
+        export_rows.append(line)
+
+    fname = f"mark_sheet_{term}_{year}"
     if filetype == "pdf":
-        return export_pdf(fname, title, headers, rows, landscape_mode=True)
-    return export_excel(fname, title, headers, rows)
+        return export_pdf(fname, title, headers, export_rows, landscape_mode=True)
+    return export_excel(fname, title, headers, export_rows)
