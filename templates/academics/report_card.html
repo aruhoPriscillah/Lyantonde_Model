@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Report Card - {{ student.full_name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>Report Card &mdash; {{ student.full_name }}</h3>
+    <div>
+        <a href="{% url 'academics:export_report_card' student.pk %}?term={{ term }}&year={{ year }}" class="btn btn-outline-danger btn-sm">Export / Print PDF</a>
+    </div>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">{{ filter_form.term }}</div>
+    <div class="col-auto">{{ filter_form.year }}</div>
+    <div class="col-auto"><button class="btn btn-secondary" type="submit">Filter</button></div>
+</form>
+
+<div class="card p-4" style="max-width: 700px;">
+    <p><strong>Admission No.:</strong> {{ student.admission_number }}</p>
+    <p><strong>Class:</strong> {{ student.school_class|default:"-" }}</p>
+    <p><strong>Boarding Status:</strong> {{ student.get_boarding_status_display }}</p>
+
+    <h5 class="mt-4">Results &mdash; {{ term }} {{ year }}</h5>
+    <table class="table table-hover">
+        <thead><tr><th>Subject</th><th>Score</th><th>Grade</th></tr></thead>
+        <tbody>
+        {% for subject_name, score, grade in subject_rows %}
+            <tr><td>{{ subject_name }}</td><td>{{ score }}</td><td>{{ grade }}</td></tr>
+        {% empty %}
+            <tr><td colspan="3" class="text-center text-muted">No results recorded yet for {{ term }} {{ year }}.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <p>
+        <strong>Total:</strong> {{ total }} &nbsp;|&nbsp;
+        <strong>Average:</strong> {{ average|floatformat:1|default:"-" }}
+        {% if position %}
+            &nbsp;|&nbsp; <strong>Position:</strong> {{ position }} out of {{ class_size }}
+        {% endif %}
+    </p>
+
+    {% if fee_status %}
+    <h5 class="mt-4">Fees &mdash; {{ term }} {{ year }}</h5>
+    <p>
+        Expected: {{ fee_status.expected }} &nbsp;|&nbsp;
+        Paid: {{ fee_status.paid }} &nbsp;|&nbsp;
+        Balance: {{ fee_status.balance }} &nbsp;|&nbsp;
+        {% if fee_status.is_defaulter %}
+            <span class="badge badge-defaulter">Defaulter</span>
+        {% else %}
+            <span class="badge badge-cleared">Cleared</span>
+        {% endif %}
+    </p>
+    {% endif %}
+</div>
+{% endblock %}

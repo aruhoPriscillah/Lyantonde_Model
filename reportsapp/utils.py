@@ -158,3 +158,87 @@ def export_pdf(filename, title, headers, rows, subtitle=None, landscape_mode=Fal
     response = HttpResponse(buffer.read(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
     return response
+
+def export_report_card_pdf(filename, student, term_label, year, subject_rows, total, average, position=None, class_size=None, fee_status=None):
+    """
+    Build a single-pupil report card PDF (as opposed to export_pdf, which is a
+    generic multi-row table export). subject_rows: list of (subject_name, score, grade).
+    """
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=2 * cm, rightMargin=2 * cm, topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+    )
+    styles = getSampleStyleSheet()
+    elements = [
+        Paragraph("Lyantonde Model Primary School", styles["Title"]),
+        Paragraph(f"Pupil Report Card &mdash; {term_label} {year}", styles["Heading2"]),
+        Spacer(1, 12),
+    ]
+
+    info_data = [
+        ["Name:", student.full_name, "Admission No.:", student.admission_number],
+        ["Class:", str(student.school_class) if student.school_class else "-", "Gender:", student.get_gender_display()],
+        ["Boarding Status:", student.get_boarding_status_display(), "", ""],
+    ]
+    info_table = Table(info_data, colWidths=[3 * cm, 6 * cm, 3.5 * cm, 4 * cm])
+    info_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    elements.append(info_table)
+    elements.append(Spacer(1, 16))
+
+    subject_data = [["Subject", "Score", "Grade"]] + [
+        [name, f"{score:.1f}", grade] for name, score, grade in subject_rows
+    ]
+    subject_table = Table(subject_data, colWidths=[8 * cm, 4 * cm, 4 * cm], repeatRows=1)
+    subject_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F4E78")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F2F2")]),
+                ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
+    elements.append(subject_table)
+    elements.append(Spacer(1, 16))
+
+    summary_lines = [f"<b>Total:</b> {total:.1f}", f"<b>Average:</b> {average:.1f}" if average is not None else "<b>Average:</b> -"]
+    if position and class_size:
+        summary_lines.append(f"<b>Position:</b> {position} out of {class_size}")
+    elements.append(Paragraph(" &nbsp;&nbsp;|&nbsp;&nbsp; ".join(summary_lines), styles["Normal"]))
+
+    if fee_status is not None:
+        elements.append(Spacer(1, 10))
+        fee_line = (
+            f"<b>Fees ({term_label} {year}):</b> Expected {fee_status['expected']:.2f}, "
+            f"Paid {fee_status['paid']:.2f}, Balance {fee_status['balance']:.2f} "
+            f"({'DEFAULTER' if fee_status['is_defaulter'] else 'Cleared'})"
+        )
+        elements.append(Paragraph(fee_line, styles["Normal"]))
+
+    elements.append(Spacer(1, 40))
+    signature_data = [["Class Teacher's Signature: ______________________", "Headteacher's Signature: ______________________"]]
+    signature_table = Table(signature_data, colWidths=[9 * cm, 9 * cm])
+    signature_table.setStyle(TableStyle([("FONTSIZE", (0, 0), (-1, -1), 10)]))
+    elements.append(signature_table)
+
+    doc.build(elements, onFirstPage=_draw_watermark, onLaterPages=_draw_watermark)
+    buffer.seek(0)
+
+    response = HttpResponse(buffer.read(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
+    return response

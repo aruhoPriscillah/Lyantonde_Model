@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ student.full_name }}{% endblock %}
 {% block content %}
-<h3>{{ student.full_name }} <small class="text-muted">({{ student.admission_number }})</small></h3>
+<div class="d-flex justify-content-between align-items-center">
+    <h3>{{ student.full_name }} <small class="text-muted">({{ student.admission_number }})</small></h3>
+    <a href="{% url 'academics:report_card' student.pk %}" class="btn btn-primary btn-sm">View Report Card</a>
+</div>
 <div class="card p-4 mt-3" style="max-width:600px;">
     <p><strong>Class:</strong> {{ student.school_class|default:"-" }}</p>
     <p><strong>Gender:</strong> {{ student.get_gender_display }}</p>
