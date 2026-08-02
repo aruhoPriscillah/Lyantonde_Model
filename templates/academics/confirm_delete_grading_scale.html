@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Delete Grade Band{% endblock %}
+{% block content %}
+<h3 class="mb-4">Delete Grade Band</h3>
+<div class="card p-4" style="max-width: 500px;">
+    <p>Are you sure you want to delete the grade band <strong>{{ band.grade }}</strong> (minimum score {{ band.min_score }})?</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+        <a href="{% url 'academics:manage_grading_scale' %}" class="btn btn-link">Cancel</a>
+    </form>
+</div>
+{% endblock %}

@@ -1,10 +1,16 @@
 from django.contrib import admin
-from .models import Subject, Result
+from .models import Subject, Result, GradingScale
 
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
     list_display = ("name",)
+
+
+@admin.register(GradingScale)
+class GradingScaleAdmin(admin.ModelAdmin):
+    list_display = ("grade", "min_score")
+    ordering = ("-min_score",)
 
 
 @admin.register(Result)

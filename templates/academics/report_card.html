@@ -15,6 +15,9 @@
 </form>
 
 <div class="card p-4" style="max-width: 700px;">
+    {% if student.photo %}
+        <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;" class="mb-3">
+    {% endif %}
     <p><strong>Admission No.:</strong> {{ student.admission_number }}</p>
     <p><strong>Class:</strong> {{ student.school_class|default:"-" }}</p>
     <p><strong>Boarding Status:</strong> {{ student.get_boarding_status_display }}</p>

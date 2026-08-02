@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}All Results{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>All Results {% if selected_class %}&mdash; {{ selected_class }}{% endif %}</h3>
+    {% if selected_class %}
+    <div>
+        <a href="{% url 'academics:export_results' 'pdf' %}?term={{ term }}&year={{ year }}&class_id={{ selected_class.id }}" class="btn btn-outline-danger btn-sm">Export PDF</a>
+        <a href="{% url 'academics:export_results' 'xlsx' %}?term={{ term }}&year={{ year }}&class_id={{ selected_class.id }}" class="btn btn-outline-success btn-sm">Export Excel</a>
+    </div>
+    {% endif %}
+</div>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <select name="class_id" class="form-select" onchange="this.form.submit()">
+            {% for c in classes %}
+                <option value="{{ c.id }}" {% if selected_class and c.id == selected_class.id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">{{ filter_form.term }}</div>
+    <div class="col-auto">{{ filter_form.year }}</div>
+    <div class="col-auto"><button class="btn btn-secondary" type="submit">Filter</button></div>
+</form>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Admission No.</th>
+                    <th>Name</th>
+                    {% for subject in subjects %}
+                        <th>{{ subject.name }}</th>
+                    {% endfor %}
+                    <th>Total</th>
+                    <th>Average</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td>{{ row.student.admission_number }}</td>
+                    <td>{{ row.student.full_name }}</td>
+                    {% for result in row.scores %}
+                        <td>
+                            {% if result %}
+                                {{ result.score }} <span class="text-muted">({{ result.grade }})</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                    <td class="fw-bold">{{ row.total }}</td>
+                    <td class="fw-bold">{{ row.average|floatformat:1|default:"-" }}</td>
+                    <td><a href="{% url 'academics:report_card' row.student.pk %}?term={{ term }}&year={{ year }}" class="btn btn-sm btn-outline-primary">Report Card</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="{{ subjects|length|add:5 }}" class="text-center text-muted">No results recorded yet for {{ term }} {{ year }}.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -3,9 +3,13 @@
 {% block content %}
 <h3 class="mb-4">Register New Student</h3>
 <div class="card p-4" style="max-width: 700px;">
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="row">
+            <div class="col-12 mb-3">
+                <label class="form-label">Pupil's Photo</label>
+                {{ form.photo }}
+            </div>
             <div class="col-md-6 mb-3">
                 <label class="form-label">First Name</label>
                 {{ form.first_name }}
@@ -29,6 +33,18 @@
             <div class="col-md-6 mb-3">
                 <label class="form-label">Boarding Status</label>
                 {{ form.boarding_status }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Former School</label>
+                {{ form.former_school }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Religion</label>
+                {{ form.religion }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">{{ form.nin.label }}</label>
+                {{ form.nin }}
             </div>
             <div class="col-md-6 mb-3">
                 <label class="form-label">Date Admitted</label>

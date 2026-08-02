@@ -3,6 +3,8 @@ from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from students.views import dashboard_redirect
 from accounts.forms import StyledAuthenticationForm
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -13,3 +15,6 @@ urlpatterns = [
     path("bursar/fees/", include("fees.urls")),
     path("teacher/academics/", include("academics.urls")),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

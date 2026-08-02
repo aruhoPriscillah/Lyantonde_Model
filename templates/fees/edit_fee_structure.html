@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Edit Fee Structure{% endblock %}
+{% block content %}
+<h3 class="mb-4">Edit Fee Structure &mdash; {{ structure.school_class }}</h3>
+<div class="card p-4" style="max-width: 500px;">
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3"><label class="form-label">Class</label>{{ form.school_class }}</div>
+        <div class="mb-3"><label class="form-label">Term</label>{{ form.term }}</div>
+        <div class="mb-3"><label class="form-label">Year</label>{{ form.year }}</div>
+        <div class="mb-3"><label class="form-label">Boarding Status</label>{{ form.boarding_status }}</div>
+        <div class="mb-3"><label class="form-label">Amount</label>{{ form.amount }}</div>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="{% url 'fees:manage_fee_structure' %}" class="btn btn-link">Cancel</a>
+    </form>
+</div>
+{% endblock %}

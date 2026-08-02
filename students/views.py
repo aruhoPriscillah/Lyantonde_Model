@@ -11,7 +11,6 @@ from .models import Student, SchoolClass
 
 @login_required
 def dashboard_redirect(request):
-    """Send a logged-in user to the dashboard for their role."""
     role_urls = {
         User.Role.HEADTEACHER: "students:headteacher_dashboard",
         User.Role.BURSAR: "fees:bursar_dashboard",
@@ -34,7 +33,7 @@ def headteacher_dashboard(request):
 @role_required(User.Role.HEADTEACHER)
 def register_student(request):
     if request.method == "POST":
-        form = StudentForm(request.POST)
+        form = StudentForm(request.POST, request.FILES)
         if form.is_valid():
             student = form.save(commit=False)
             student.registered_by = request.user
@@ -64,6 +63,20 @@ def manage_classes(request):
     return render(request, "students/manage_classes.html", {"form": form, "classes": classes})
 
 
+@role_required(User.Role.HEADTEACHER)
+def edit_class(request, pk):
+    school_class = get_object_or_404(SchoolClass, pk=pk)
+    if request.method == "POST":
+        form = SchoolClassForm(request.POST, instance=school_class)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"'{school_class.name}' updated.")
+            return redirect("students:manage_classes")
+    else:
+        form = SchoolClassForm(instance=school_class)
+    return render(request, "students/edit_class.html", {"form": form, "school_class": school_class})
+
+
 @role_required(User.Role.HEADTEACHER, User.Role.BURSAR, User.Role.TEACHER)
 def student_detail(request, pk):
     student = get_object_or_404(Student, pk=pk)
@@ -73,13 +86,14 @@ def student_detail(request, pk):
 @role_required(User.Role.HEADTEACHER)
 def export_students(request, filetype):
     students = Student.objects.select_related("school_class").filter(is_active=True)
-    headers = ["Admission No.", "Full Name", "Gender", "Class", "Guardian", "Guardian Phone", "Date Admitted"]
+    headers = ["Admission No.", "Full Name", "Gender", "Class", "Boarding Status", "Guardian", "Guardian Phone", "Date Admitted"]
     rows = [
         [
             s.admission_number,
             s.full_name,
             s.get_gender_display(),
             s.school_class.name if s.school_class else "-",
+            s.get_boarding_status_display(),
             s.guardian_name,
             s.guardian_phone,
             s.date_admitted.strftime("%Y-%m-%d"),

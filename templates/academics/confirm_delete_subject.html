@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Delete Subject{% endblock %}
+{% block content %}
+<h3 class="mb-4">Delete Subject</h3>
+<div class="card p-4" style="max-width:500px;">
+    <p>Delete <strong>{{ subject.name }}</strong>? This will also delete every recorded result for this subject.</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+        <a href="{% url 'academics:manage_subjects' %}" class="btn btn-link">Cancel</a>
+    </form>
+</div>
+{% endblock %}

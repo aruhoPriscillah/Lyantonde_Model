@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Grading Scale{% endblock %}
+{% block content %}
+<h3 class="mb-4">Grading Scale</h3>
+<p class="text-muted">Define the grade bands used across all mark sheets and report cards. A score maps to the highest band whose minimum it meets or exceeds.</p>
+<div class="row">
+    <div class="col-md-5">
+        <div class="card p-4">
+            <h5>Add Grade Band</h5>
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3"><label class="form-label">Grade</label>{{ form.grade }}</div>
+                <div class="mb-3"><label class="form-label">Minimum Score</label>{{ form.min_score }}</div>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card p-3">
+            <h5>Current Grading Scale</h5>
+            <table class="table">
+                <thead><tr><th>Grade</th><th>Minimum Score</th><th></th></tr></thead>
+                <tbody>
+                {% for band in bands %}
+                    <tr>
+                        <td>{{ band.grade }}</td>
+                        <td>{{ band.min_score }}</td>
+                        <td>
+                            <a href="{% url 'academics:edit_grading_scale' band.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <a href="{% url 'academics:delete_grading_scale' band.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted">No grade bands configured yet &mdash; the system defaults to a D1&ndash;F9 scale until you add your own.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

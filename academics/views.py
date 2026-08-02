@@ -1,3 +1,4 @@
+import datetime
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.exceptions import PermissionDenied
@@ -7,26 +8,41 @@ from accounts.models import User
 from reportsapp.utils import export_excel, export_pdf, export_report_card_pdf
 from students.models import SchoolClass, Student
 from fees.forms import TermYearFilterForm
-from fees.models import fee_status_for_student
-from .forms import ResultForm
-from .models import Result, Subject
-from fees.models import TERM_CHOICES
-
-import datetime
+from fees.models import fee_status_for_student, TERM_CHOICES
+from .forms import ResultForm, GradingScaleForm, BulkResultFilterForm, SubjectForm
+from .models import Result, Subject, GradingScale
 
 CURRENT_YEAR = datetime.date.today().year
 DEFAULT_TERM = "TERM1"
 
+@role_required(User.Role.HEADTEACHER)
+def manage_subjects(request):
+    if request.method == "POST":
+        form = SubjectForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Subject added.")
+            return redirect("academics:manage_subjects")
+    else:
+        form = SubjectForm()
+    subjects = Subject.objects.all().order_by("name")
+    return render(request, "academics/manage_subjects.html", {"form": form, "subjects": subjects})
+
+
+@role_required(User.Role.HEADTEACHER)
+def delete_subject(request, pk):
+    subject = get_object_or_404(Subject, pk=pk)
+    if request.method == "POST":
+        subject.delete()
+        messages.success(request, f"'{subject.name}' deleted.")
+        return redirect("academics:manage_subjects")
+    return render(request, "academics/confirm_delete_subject.html", {"subject": subject})
 
 def _get_teacher_class(user):
-    """A teacher is assumed to be in charge of at most one class."""
     return SchoolClass.objects.filter(class_teacher=user).first()
 
 
 def pivot_class_results(school_class, term, year, students_qs=None):
-    """
-    Build a mark-sheet-style table: one row per student, one column per subject.
-    """
     if school_class is None:
         return [], []
 
@@ -74,6 +90,32 @@ def teacher_dashboard(request):
         {"school_class": school_class, "students": students},
     )
 
+@role_required(User.Role.TEACHER)
+def export_class_list(request, filetype):
+    school_class = _get_teacher_class(request.user)
+    if not school_class:
+        messages.error(request, "You are not currently assigned to a class.")
+        return redirect("academics:teacher_dashboard")
+
+    students = school_class.students.filter(is_active=True)
+    headers = ["Admission No.", "Full Name", "Gender", "Boarding Status", "Guardian", "Guardian Phone"]
+    rows = [
+        [
+            s.admission_number,
+            s.full_name,
+            s.get_gender_display(),
+            s.get_boarding_status_display(),
+            s.guardian_name,
+            s.guardian_phone,
+        ]
+        for s in students
+    ]
+
+    title = f"Class List - {school_class}"
+    fname = f"class_list_{school_class.name.replace(' ', '_')}"
+    if filetype == "pdf":
+        return export_pdf(fname, title, headers, rows, landscape_mode=True)
+    return export_excel(fname, title, headers, rows)
 
 @role_required(User.Role.TEACHER)
 def add_result(request):
@@ -96,6 +138,63 @@ def add_result(request):
         form = ResultForm(teacher_class=school_class)
     return render(request, "academics/add_result.html", {"form": form, "school_class": school_class})
 
+@role_required(User.Role.TEACHER)
+def bulk_add_results(request):
+    school_class = _get_teacher_class(request.user)
+    if not school_class:
+        messages.error(request, "You are not currently assigned to a class.")
+        return redirect("academics:teacher_dashboard")
+
+    students = list(school_class.students.filter(is_active=True))
+    data = request.POST if request.method == "POST" else (request.GET or {"term": DEFAULT_TERM, "year": CURRENT_YEAR})
+    filter_form = BulkResultFilterForm(data)
+
+    subject = None
+    term, year = DEFAULT_TERM, CURRENT_YEAR
+    if filter_form.is_valid():
+        subject = filter_form.cleaned_data.get("subject")
+        term = filter_form.cleaned_data["term"]
+        year = filter_form.cleaned_data["year"]
+
+    if request.method == "POST":
+        if not subject:
+            messages.error(request, "Please choose a subject before saving.")
+        else:
+            saved_count = 0
+            for student in students:
+                score_raw = request.POST.get(f"score_{student.id}", "").strip()
+                if score_raw == "":
+                    continue
+                try:
+                    score_value = float(score_raw)
+                except ValueError:
+                    continue
+                remarks = request.POST.get(f"remarks_{student.id}", "").strip()
+                Result.objects.update_or_create(
+                    student=student, subject=subject, term=term, year=year,
+                    defaults={"score": score_value, "remarks": remarks, "recorded_by": request.user},
+                )
+                saved_count += 1
+            messages.success(request, f"Saved results for {saved_count} pupil(s) in {subject.name} ({term} {year}).")
+            return redirect(f"{request.path}?subject={subject.id}&term={term}&year={year}")
+
+    existing = {}
+    if subject:
+        existing = {
+            r.student_id: r for r in Result.objects.filter(
+                student__in=students, subject=subject, term=term, year=year
+            )
+        }
+    rows = [(student, existing.get(student.id)) for student in students]
+
+    return render(request, "academics/bulk_add_results.html", {
+        "school_class": school_class,
+        "filter_form": filter_form,
+        "rows": rows,
+        "subject": subject,
+        "term": term,
+        "year": year,
+    })
 
 @role_required(User.Role.TEACHER)
 def class_results(request):
@@ -133,30 +232,35 @@ def export_results(request, filetype):
         title = f"Mark Sheet - {school_class} - {term} {year}" if school_class else "Mark Sheet"
         subjects, rows = pivot_class_results(school_class, term, year)
     else:
-        title = f"Mark Sheet - All Classes - {term} {year}"
-        all_results = Result.objects.select_related("student", "subject").filter(term=term, year=year)
-        subject_ids = sorted(
-            {r.subject_id for r in all_results},
-            key=lambda sid: next(r.subject.name for r in all_results if r.subject_id == sid),
-        )
-        subjects = list(Subject.objects.filter(id__in=subject_ids).order_by("name"))
-        lookup = {(r.student_id, r.subject_id): r for r in all_results}
-        students = {r.student for r in all_results}
-        rows = []
-        for student in sorted(students, key=lambda s: s.admission_number):
-            scores = []
-            total = 0
-            count = 0
-            for subject in subjects:
-                result = lookup.get((student.id, subject.id))
-                if result is not None:
-                    scores.append(result)
-                    total += result.score
-                    count += 1
-                else:
-                    scores.append(None)
-            average = (total / count) if count else None
-            rows.append({"student": student, "scores": scores, "total": total, "average": average})
+        class_id = request.GET.get("class_id")
+        school_class = SchoolClass.objects.filter(id=class_id).first() if class_id else None
+        title = f"Mark Sheet - {school_class or 'All Classes'} - {term} {year}"
+        if school_class:
+            subjects, rows = pivot_class_results(school_class, term, year)
+        else:
+            all_results = Result.objects.select_related("student", "subject").filter(term=term, year=year)
+            subject_ids = sorted(
+                {r.subject_id for r in all_results},
+                key=lambda sid: next(r.subject.name for r in all_results if r.subject_id == sid),
+            )
+            subjects = list(Subject.objects.filter(id__in=subject_ids).order_by("name"))
+            lookup = {(r.student_id, r.subject_id): r for r in all_results}
+            students = {r.student for r in all_results}
+            rows = []
+            for student in sorted(students, key=lambda s: s.admission_number):
+                scores = []
+                total = 0
+                count = 0
+                for subject in subjects:
+                    result = lookup.get((student.id, subject.id))
+                    if result is not None:
+                        scores.append(result)
+                        total += result.score
+                        count += 1
+                    else:
+                        scores.append(None)
+                average = (total / count) if count else None
+                rows.append({"student": student, "scores": scores, "total": total, "average": average})
 
     headers = ["Admission No.", "Name"] + [s.name for s in subjects] + ["Total", "Average"]
     export_rows = []
@@ -173,11 +277,38 @@ def export_results(request, filetype):
         return export_pdf(fname, title, headers, export_rows, landscape_mode=True)
     return export_excel(fname, title, headers, export_rows)
 
+
+@role_required(User.Role.HEADTEACHER)
+def all_results(request):
+    """Headteacher view: pick any class, see its mark sheet for a term/year."""
+    classes = SchoolClass.objects.all()
+    class_id = request.GET.get("class_id")
+    selected_class = classes.filter(id=class_id).first() if class_id else classes.first()
+
+    filter_form = TermYearFilterForm(request.GET or {"term": DEFAULT_TERM, "year": CURRENT_YEAR})
+    term, year = DEFAULT_TERM, CURRENT_YEAR
+    if filter_form.is_valid():
+        term = filter_form.cleaned_data["term"]
+        year = filter_form.cleaned_data["year"]
+
+    subjects, rows = pivot_class_results(selected_class, term, year) if selected_class else ([], [])
+
+    return render(
+        request,
+        "academics/all_results.html",
+        {
+            "classes": classes,
+            "selected_class": selected_class,
+            "subjects": subjects,
+            "rows": rows,
+            "filter_form": filter_form,
+            "term": term,
+            "year": year,
+        },
+    )
+
+
 def student_report_data(student, term, year):
-    """
-    One pupil's results for a term/year, plus their rank within their class
-    (by average score) if their classmates also have recorded results.
-    """
     school_class = student.school_class
     subjects, class_rows = pivot_class_results(school_class, term, year) if school_class else ([], [])
 
@@ -208,7 +339,6 @@ def student_report_data(student, term, year):
 
 
 def _can_view_student(user, student):
-    """Headteacher/Bursar can view any student; a Teacher only their own class."""
     if user.role in (User.Role.HEADTEACHER, User.Role.BURSAR):
         return True
     if user.role == User.Role.TEACHER:
@@ -266,3 +396,41 @@ def export_report_card(request, pk):
     return export_report_card_pdf(
         fname, student, term_label, year, subject_rows, total, average, position, class_size, fee_status
     )
+
+
+@role_required(User.Role.HEADTEACHER)
+def manage_grading_scale(request):
+    if request.method == "POST":
+        form = GradingScaleForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Grade band saved.")
+            return redirect("academics:manage_grading_scale")
+    else:
+        form = GradingScaleForm()
+    bands = GradingScale.objects.order_by("-min_score")
+    return render(request, "academics/manage_grading_scale.html", {"form": form, "bands": bands})
+
+
+@role_required(User.Role.HEADTEACHER)
+def edit_grading_scale(request, pk):
+    band = get_object_or_404(GradingScale, pk=pk)
+    if request.method == "POST":
+        form = GradingScaleForm(request.POST, instance=band)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Grade band '{band.grade}' updated.")
+            return redirect("academics:manage_grading_scale")
+    else:
+        form = GradingScaleForm(instance=band)
+    return render(request, "academics/edit_grading_scale.html", {"form": form, "band": band})
+
+
+@role_required(User.Role.HEADTEACHER)
+def delete_grading_scale(request, pk):
+    band = get_object_or_404(GradingScale, pk=pk)
+    if request.method == "POST":
+        band.delete()
+        messages.success(request, f"Grade band '{band.grade}' deleted.")
+        return redirect("academics:manage_grading_scale")
+    return render(request, "academics/confirm_delete_grading_scale.html", {"band": band})

@@ -5,9 +5,7 @@ from django.db.models import Max
 
 
 class SchoolClass(models.Model):
-    """A class/stream, e.g. Primary 1, Primary 2 ... each led by one teacher."""
-
-    name = models.CharField(max_length=50, unique=True)  
+    name = models.CharField(max_length=50, unique=True)
     class_teacher = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -28,12 +26,13 @@ class Student(models.Model):
     class Gender(models.TextChoices):
         MALE = "M", "Male"
         FEMALE = "F", "Female"
-        
+
     class BoardingStatus(models.TextChoices):
         DAY = "DAY", "Day Scholar"
         BOARDING = "BOARDING", "Boarding Scholar"
 
     admission_number = models.CharField(max_length=20, unique=True, editable=False)
+    photo = models.ImageField(upload_to="student_photos/", blank=True, null=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     gender = models.CharField(max_length=1, choices=Gender.choices)
@@ -43,6 +42,12 @@ class Student(models.Model):
     )
     boarding_status = models.CharField(
         max_length=10, choices=BoardingStatus.choices, default=BoardingStatus.DAY
+    )
+    former_school = models.CharField(max_length=200, blank=True, help_text="Previous school attended, if any.")
+    religion = models.CharField(max_length=100, blank=True)
+    nin = models.CharField(
+        max_length=50, blank=True, verbose_name="NIN (optional)",
+        help_text="National Identification Number, if the pupil has one."
     )
     guardian_name = models.CharField(max_length=150)
     guardian_phone = models.CharField(max_length=20)
@@ -70,7 +75,6 @@ class Student(models.Model):
 
     @staticmethod
     def _generate_admission_number():
-        """Format: LM<4+ digit sequence>, e.g. LM0001, LM0002 ... LM10000."""
         prefix = "LM"
         last = (
             Student.objects.filter(admission_number__startswith=prefix)

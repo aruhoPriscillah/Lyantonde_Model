@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Add Results{% endblock %}
+{% block content %}
+<h3 class="mb-4">Add Results &mdash; {{ school_class }}</h3>
+
+<form method="get" class="row g-2 mb-4">
+    <div class="col-auto">{{ filter_form.subject }}</div>
+    <div class="col-auto">{{ filter_form.term }}</div>
+    <div class="col-auto">{{ filter_form.year }}</div>
+    <div class="col-auto"><button class="btn btn-secondary" type="submit">Load Class List</button></div>
+</form>
+
+{% if subject %}
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="subject" value="{{ subject.id }}">
+    <input type="hidden" name="term" value="{{ term }}">
+    <input type="hidden" name="year" value="{{ year }}">
+
+    <div class="card p-3">
+        <h5>{{ subject.name }} &mdash; {{ term }} {{ year }}</h5>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr><th>Admission No.</th><th>Name</th><th>Score (out of 100)</th><th>Remarks</th></tr></thead>
+                <tbody>
+                {% for student, result in rows %}
+                    <tr>
+                        <td>{{ student.admission_number }}</td>
+                        <td>{{ student.full_name }}</td>
+                        <td>
+                            <input type="number" step="0.01" min="0" max="100" class="form-control"
+                                   name="score_{{ student.id }}"
+                                   value="{% if result %}{{ result.score }}{% endif %}">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control"
+                                   name="remarks_{{ student.id }}"
+                                   value="{% if result %}{{ result.remarks }}{% endif %}">
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted">No students in this class.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn btn-primary">Save All Results</button>
+    </div>
+</form>
+{% else %}
+    <p class="text-muted">Choose a subject above, then click "Load Class List" to enter scores for every pupil at once.</p>
+{% endif %}
+{% endblock %}

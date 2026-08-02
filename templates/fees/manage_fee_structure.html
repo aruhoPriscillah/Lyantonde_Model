@@ -21,13 +21,19 @@
         <div class="card p-3">
             <h5>Current Fee Structures</h5>
             <table class="table">
-                <thead><tr><th>Class</th><th>Term</th><th>Year</th><th>Boarding Status</th><th>Amount</th></tr></thead>
+                <thead><tr><th>Class</th><th>Term</th><th>Year</th><th>Boarding Status</th><th>Amount</th><th></th></tr></thead>
                 <tbody>
                 {% for s in structures %}
-                    <tr><td>{{ s.school_class }}</td><td>{{ s.get_term_display }}</td><td>{{ s.year }}</td><td>{{ s.get_boarding_status_display }}</td><td>{{ s.amount }}</td></tr>
-                    
+                    <tr>
+                        <td>{{ s.school_class }}</td>
+                        <td>{{ s.get_term_display }}</td>
+                        <td>{{ s.year }}</td>
+                        <td>{{ s.get_boarding_status_display }}</td>
+                        <td>{{ s.amount }}</td>
+                        <td><a href="{% url 'fees:edit_fee_structure' s.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a></td>
+                    </tr>
                 {% empty %}
-                    <tr><td colspan="5" class="text-center text-muted">No fee structures set.</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted">No fee structures set.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>

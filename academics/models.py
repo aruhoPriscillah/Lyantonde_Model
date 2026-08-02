@@ -11,12 +11,47 @@ class Subject(models.Model):
         return self.name
 
 
+class GradingScale(models.Model):
+    """
+    Headteacher-configurable grade bands, e.g. D1 from 90, D2 from 80, etc.
+    A score maps to the highest band whose min_score it meets or exceeds.
+    """
+    grade = models.CharField(max_length=5, unique=True)
+    min_score = models.DecimalField(max_digits=5, decimal_places=2)
+
+    class Meta:
+        ordering = ["-min_score"]
+
+    def __str__(self):
+        return f"{self.grade} (from {self.min_score})"
+
+
+_DEFAULT_SCALE = [
+    ("D1", 90), ("D2", 80), ("C3", 70), ("C4", 60),
+    ("C5", 55), ("C6", 50), ("P7", 45), ("P8", 40), ("F9", 0),
+]
+
+
+def compute_grade(score):
+    s = float(score)
+    bands = list(GradingScale.objects.order_by("-min_score"))
+    if bands:
+        for band in bands:
+            if s >= float(band.min_score):
+                return band.grade
+        return bands[-1].grade
+    for grade, min_score in _DEFAULT_SCALE:
+        if s >= min_score:
+            return grade
+    return _DEFAULT_SCALE[-1][0]
+
+
 class Result(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="results")
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="results")
     term = models.CharField(max_length=10, choices=TERM_CHOICES)
     year = models.PositiveIntegerField()
-    score = models.DecimalField(max_digits=5, decimal_places=2)  # out of 100
+    score = models.DecimalField(max_digits=5, decimal_places=2)
     remarks = models.CharField(max_length=255, blank=True)
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     date_recorded = models.DateTimeField(auto_now_add=True)
@@ -26,24 +61,7 @@ class Result(models.Model):
         ordering = ["student", "subject"]
 
     def grade(self):
-        s = float(self.score)
-        if s >= 90:
-            return "D1"
-        if s >= 80:
-            return "D2"
-        if s >= 70:
-            return "C3"
-        if s >= 60:
-            return "C4"
-        if s >= 55:
-            return "C5"
-        if s >= 50:
-            return "C6"
-        if s >= 45:
-            return "P7"
-        if s >= 40:
-            return "P8"
-        return "F9"
+        return compute_grade(self.score)
 
     def __str__(self):
         return f"{self.student.admission_number} - {self.subject} ({self.term} {self.year}): {self.score}"

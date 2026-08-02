@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Fees - {{ student.full_name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>Fees &mdash; {{ student.full_name }} <small class="text-muted">({{ student.admission_number }})</small></h3>
+    {% if not read_only %}
+        <a href="{% url 'fees:record_payment' %}?student={{ student.pk }}" class="btn btn-primary">+ Record Payment</a>
+    {% endif %}
+</div>
+
+<div class="card p-4 mb-4" style="max-width:600px;">
+    <p><strong>Class:</strong> {{ student.school_class|default:"-" }}</p>
+    <p><strong>Boarding Status:</strong> {{ student.get_boarding_status_display }}</p>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">{{ filter_form.term }}</div>
+    <div class="col-auto">{{ filter_form.year }}</div>
+    <div class="col-auto"><button class="btn btn-secondary" type="submit">Check Term</button></div>
+</form>
+
+<div class="card p-3 mb-4">
+    <h5>Status &mdash; {{ term }} {{ year }}</h5>
+    <p>
+        Expected: {{ fee_status.expected }} &nbsp;|&nbsp;
+        Paid: {{ fee_status.paid }} &nbsp;|&nbsp;
+        Balance: {{ fee_status.balance }} &nbsp;|&nbsp;
+        {% if fee_status.is_defaulter %}
+            <span class="badge badge-defaulter">Defaulter</span>
+        {% else %}
+            <span class="badge badge-cleared">Cleared</span>
+        {% endif %}
+    </p>
+</div>
+
+<div class="card p-3">
+    <h5>Payment History</h5>
+    <table class="table table-hover">
+        <thead><tr><th>Date</th><th>Term</th><th>Year</th><th>Amount</th><th>Method</th><th>Reference</th><th>Received By</th>{% if not read_only %}<th></th>{% endif %}</tr></thead>
+        <tbody>
+        {% for p in payments %}
+            <tr>
+                <td>{{ p.date_paid }}</td>
+                <td>{{ p.get_term_display }}</td>
+                <td>{{ p.year }}</td>
+                <td>{{ p.amount }}</td>
+                <td>{{ p.get_method_display }}</td>
+                <td>{{ p.reference|default:"-" }}</td>
+                <td>{{ p.received_by|default:"-" }}</td>
+                {% if not read_only %}
+                <td>
+                    <a href="{% url 'fees:edit_payment' p.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                    <a href="{% url 'fees:delete_payment' p.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                </td>
+                {% endif %}
+            </tr>
+        {% empty %}
+            <tr><td colspan="8" class="text-center text-muted">No payments recorded yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

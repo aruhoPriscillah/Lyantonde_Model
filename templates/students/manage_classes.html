@@ -5,7 +5,7 @@
 <div class="row">
     <div class="col-md-5">
         <div class="card p-4">
-            <h5>Add / Update Class</h5>
+            <h5>Add Class</h5>
             <form method="post">
                 {% csrf_token %}
                 <div class="mb-3">
@@ -24,16 +24,17 @@
         <div class="card p-3">
             <h5>Existing Classes</h5>
             <table class="table">
-                <thead><tr><th>Class</th><th>Class Teacher</th><th>Students</th></tr></thead>
+                <thead><tr><th>Class</th><th>Class Teacher</th><th>Students</th><th></th></tr></thead>
                 <tbody>
                 {% for c in classes %}
                     <tr>
                         <td>{{ c.name }}</td>
                         <td>{{ c.class_teacher|default:"Unassigned" }}</td>
                         <td>{{ c.students.count }}</td>
+                        <td><a href="{% url 'students:edit_class' c.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a></td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="3" class="text-center text-muted">No classes yet.</td></tr>
+                    <tr><td colspan="4" class="text-center text-muted">No classes yet.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>
