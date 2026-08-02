@@ -31,6 +31,15 @@ class Student(models.Model):
         DAY = "DAY", "Day Scholar"
         BOARDING = "BOARDING", "Boarding Scholar"
 
+    class Religion(models.TextChoices):
+        CATHOLIC = "CATHOLIC", "Catholic"
+        PROTESTANT = "PROTESTANT", "Protestant / Anglican"
+        MUSLIM = "MUSLIM", "Muslim"
+        PENTECOSTAL = "PENTECOSTAL", "Pentecostal / Born Again"
+        SDA = "SDA", "Seventh-Day Adventist"
+        ORTHODOX = "ORTHODOX", "Orthodox"
+        OTHER = "OTHER", "Other"
+
     admission_number = models.CharField(max_length=20, unique=True, editable=False)
     photo = models.ImageField(upload_to="student_photos/", blank=True, null=True)
     first_name = models.CharField(max_length=100)
@@ -44,7 +53,7 @@ class Student(models.Model):
         max_length=10, choices=BoardingStatus.choices, default=BoardingStatus.DAY
     )
     former_school = models.CharField(max_length=200, blank=True, help_text="Previous school attended, if any.")
-    religion = models.CharField(max_length=100, blank=True)
+    religion = models.CharField(max_length=20, choices=Religion.choices, blank=True)
     nin = models.CharField(
         max_length=50, blank=True, verbose_name="NIN (optional)",
         help_text="National Identification Number, if the pupil has one."

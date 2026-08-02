@@ -34,7 +34,7 @@ class StudentForm(forms.ModelForm):
             "school_class": forms.Select(attrs={"class": "form-select"}),
             "boarding_status": forms.Select(attrs={"class": "form-select"}),
             "former_school": forms.TextInput(attrs={"class": "form-control"}),
-            "religion": forms.TextInput(attrs={"class": "form-control"}),
+           "religion": forms.Select(attrs={"class": "form-select"}),
             "nin": forms.TextInput(attrs={"class": "form-control"}),
             "guardian_name": forms.TextInput(attrs={"class": "form-control"}),
             "guardian_phone": forms.TextInput(attrs={"class": "form-control"}),
