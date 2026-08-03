@@ -8,10 +8,20 @@
     <title>{% block title %}Primary School Management System{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
    <style>
+        :root {
+            --navy-dark: #0A2540;
+            --navy: #123A5E;
+            --navy-light: #1F4E78;
+            --cream: #FAF3E4;
+            --cream-card: #FFFDF6;
+            --cream-border: #E8DCC0;
+            --text-navy: #16324F;
+        }
         body {
-            background-color: #f4f6f9;
+            background-color: var(--cream);
             position: relative;
             min-height: 100vh;
+            color: var(--text-navy);
         }
         body::before {
             content: "";
@@ -31,21 +41,79 @@
             z-index: 0;
         }
         .navbar, .container { position: relative; z-index: 1; }
-        .navbar-brand { font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
-        .navbar-brand img { height: 34px; width: auto; border-radius: 4px; }
-        .card { border: none; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-radius: 10px; }
+        .navbar-brand { font-weight: 600; display: flex; align-items: center; gap: 0.5rem; color: var(--cream) !important; }
+        .navbar-brand img { height: 34px; width: auto; border-radius: 4px; border: 1px solid var(--cream-border); }
+        .card {
+            border: 1px solid var(--cream-border);
+            box-shadow: 0 1px 4px rgba(10, 37, 64, 0.1);
+            border-radius: 10px;
+            background-color: var(--cream-card);
+        }
         .stat-card { text-align: center; padding: 1.25rem; }
-        .stat-card h2 { margin: 0; font-weight: 700; }
-        table thead { background-color: #1F4E78; color: #fff; }
-        .badge-defaulter { background-color: #dc3545; }
-        .badge-cleared { background-color: #198754; }
-        .student-photo-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; }
-.nav-pills-custom .nav-link { color: #1F4E78; }
-.nav-pills-custom .nav-link.active { background-color: #1F4E78; }
+        .stat-card h2 { margin: 0; font-weight: 700; color: var(--navy-dark); }
+        table thead { background-color: var(--navy-dark); color: var(--cream); }
+        table tbody tr:hover { background-color: #FBF6EA; }
+        .badge-defaulter { background-color: #A6402F; }
+        .badge-cleared { background-color: #3E6B4F; }
+        .student-photo-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; border: 1px solid var(--cream-border); }
+
+        .nav-pills-custom .nav-link { color: var(--navy); }
+        .nav-pills-custom .nav-link.active { background-color: var(--navy-dark); color: var(--cream); }
+
+        .btn-primary {
+            background-color: var(--navy-dark);
+            border-color: var(--navy-dark);
+        }
+        .btn-primary:hover, .btn-primary:focus {
+            background-color: var(--navy);
+            border-color: var(--navy);
+        }
+        .btn-outline-primary {
+            color: var(--navy-dark);
+            border-color: var(--navy-dark);
+        }
+        .btn-outline-primary:hover {
+            background-color: var(--navy-dark);
+            border-color: var(--navy-dark);
+        }
+        .btn-outline-secondary {
+            color: var(--navy);
+            border-color: var(--cream-border);
+        }
+        .btn-outline-secondary:hover {
+            background-color: var(--navy);
+            border-color: var(--navy);
+        }
+        .btn-secondary {
+            background-color: var(--navy);
+            border-color: var(--navy);
+        }
+        .btn-secondary:hover {
+            background-color: var(--navy-dark);
+            border-color: var(--navy-dark);
+        }
+        .btn-link { color: var(--navy); }
+
+        a { color: var(--navy); }
+        a:hover { color: var(--navy-dark); }
+
+        .form-control, .form-select {
+            border-color: var(--cream-border);
+            background-color: #fff;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--navy-light);
+            box-shadow: 0 0 0 0.2rem rgba(18, 58, 94, 0.15);
+        }
+
+        .alert-success { background-color: #E8F0E9; border-color: #3E6B4F; color: #244A31; }
+        .alert-danger { background-color: #F5E6E2; border-color: #A6402F; color: #6B2A1D; }
+        .alert-warning { background-color: #FBF0D9; border-color: #C9A24B; color: #6B4E17; }
+        .alert-info { background-color: #E4EEF5; border-color: var(--navy-light); color: var(--navy-dark); }
     </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark" style="background-color:#1F4E78;">
+<nav class="navbar navbar-expand-lg navbar-dark" style="background-color: var(--navy-dark);">
     <div class="container-fluid">
        <a class="navbar-brand" href="{% url 'home' %}">
             <img src="{% static 'img/school_badge.jpeg' %}" alt="Lyantonde Model Primary School">
