@@ -6,7 +6,9 @@ from accounts.decorators import role_required
 from accounts.models import User
 from reportsapp.utils import export_excel, export_pdf
 from students.models import Student
-from .forms import PaymentForm, FeeStructureForm, TermYearFilterForm
+from .forms import PaymentForm, FeeStructureForm, TermYearFilterForm, VaultFilterForm
+from .models import all_defaulters, fee_status_for_student, FeeStructure, Payment
+from django.db.models import Sum
 from .models import all_defaulters, fee_status_for_student, FeeStructure, Payment
 
 
@@ -29,6 +31,33 @@ def bursar_dashboard(request):
     fee_rows = [fee_status_for_student(s, term, year) for s in students]
     defaulter_count = sum(1 for r in fee_rows if r["is_defaulter"])
 
+    vault_form = VaultFilterForm(request.GET or {"period": "TERM", "term": DEFAULT_TERM, "year": CURRENT_YEAR})
+    vault_total = 0
+    vault_label = "Select a period"
+    if vault_form.is_valid():
+        period = vault_form.cleaned_data["period"]
+        if period == "DAY":
+            d = vault_form.cleaned_data.get("date") or datetime.date.today()
+            vault_total = Payment.objects.filter(date_paid=d).aggregate(total=Sum("amount"))["total"] or 0
+            vault_label = f"Collections on {d}"
+        elif period == "MONTH":
+            m = vault_form.cleaned_data.get("month") or datetime.date.today().month
+            y = vault_form.cleaned_data.get("year") or CURRENT_YEAR
+            vault_total = Payment.objects.filter(date_paid__year=y, date_paid__month=m).aggregate(total=Sum("amount"))["total"] or 0
+            vault_label = f"Collections in {m:02d}/{y}"
+        elif period == "TERM":
+            t = vault_form.cleaned_data.get("term") or DEFAULT_TERM
+            y = vault_form.cleaned_data.get("year") or CURRENT_YEAR
+            vault_total = Payment.objects.filter(term=t, year=y).aggregate(total=Sum("amount"))["total"] or 0
+            vault_label = f"Collections in {dict(vault_form.TERM_CHOICES).get(t, t)} {y}"
+        elif period == "YEAR":
+            y = vault_form.cleaned_data.get("year") or CURRENT_YEAR
+            vault_total = Payment.objects.filter(year=y).aggregate(total=Sum("amount"))["total"] or 0
+            vault_label = f"Collections in {y}"
+        else:
+            vault_total = Payment.objects.aggregate(total=Sum("amount"))["total"] or 0
+            vault_label = "All-Time Collections"
+
     context = {
         "fee_rows": fee_rows,
         "filter_form": filter_form,
@@ -37,6 +66,9 @@ def bursar_dashboard(request):
         "defaulter_count": defaulter_count,
         "total_students": students.count(),
         "read_only": request.user.role == User.Role.HEADTEACHER,
+        "vault_form": vault_form,
+        "vault_total": vault_total,
+        "vault_label": vault_label,
     }
     return render(request, "fees/bursar_dashboard.html", context)
 

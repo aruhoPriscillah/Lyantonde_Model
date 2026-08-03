@@ -1,6 +1,67 @@
 {% extends "base.html" %}
 {% block title %}{% if read_only %}All Payments{% else %}Bursar Dashboard{% endif %}{% endblock %}
 {% block content %}
+
+<div class="card p-4 mb-4" style="background: linear-gradient(135deg, #1F4E78, #16324F); color: #fff;">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <p class="mb-1 opacity-75">💰 {{ vault_label }}</p>
+            <h1 class="mb-0" style="font-weight:700;">{{ vault_total }}</h1>
+        </div>
+        <form method="get" class="row g-2 align-items-end">
+            <input type="hidden" name="term" value="{{ term }}">
+            <input type="hidden" name="year" value="{{ year }}">
+            <div class="col-auto">
+                <label class="form-label small text-white-50 mb-1">Period</label>
+                {{ vault_form.period }}
+            </div>
+            <div class="col-auto">
+                <label class="form-label small text-white-50 mb-1">Date</label>
+                {{ vault_form.date }}
+            </div>
+            <div class="col-auto">
+                <label class="form-label small text-white-50 mb-1">Month</label>
+                {{ vault_form.month }}
+            </div>
+            <div class="col-auto">
+                <label class="form-label small text-white-50 mb-1">Term</label>
+                {{ vault_form.term }}
+            </div>
+            <div class="col-auto">
+                <label class="form-label small text-white-50 mb-1">Year</label>
+                {{ vault_form.year }}
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-light" type="submit">Show Total</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    var periodSelect = document.getElementById('id_vault_period');
+    if (!periodSelect) return;
+    function updateVisibleFields() {
+        var period = periodSelect.value;
+        document.querySelectorAll('.vault-field').forEach(function (el) {
+            el.closest('.col-auto').style.display = 'none';
+        });
+        if (period === 'DAY') {
+            document.querySelectorAll('.vault-field-day').forEach(function (el) { el.closest('.col-auto').style.display = ''; });
+        } else if (period === 'MONTH') {
+            document.querySelectorAll('.vault-field-month').forEach(function (el) { el.closest('.col-auto').style.display = ''; });
+        } else if (period === 'TERM') {
+            document.querySelectorAll('.vault-field-term').forEach(function (el) { el.closest('.col-auto').style.display = ''; });
+        } else if (period === 'YEAR') {
+            document.querySelectorAll('.vault-field-year').forEach(function (el) { el.closest('.col-auto').style.display = ''; });
+        }
+    }
+    periodSelect.addEventListener('change', updateVisibleFields);
+    updateVisibleFields();
+})();
+</script>
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h3>{% if read_only %}All Payments (Headteacher View){% else %}Bursar Dashboard{% endif %}</h3>
     <div>
