@@ -45,6 +45,13 @@ def compute_grade(score):
             return grade
     return _DEFAULT_SCALE[-1][0]
 
+class Remark(models.TextChoices):
+    POOR = "POOR", "Poor"
+    FAIR = "FAIR", "Fair"
+    GOOD = "GOOD", "Good"
+    VERY_GOOD = "VERY_GOOD", "Very Good"
+    EXCELLENT = "EXCELLENT", "Excellent"
+
 
 class Result(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="results")

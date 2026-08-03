@@ -13,7 +13,7 @@ class ResultForm(forms.ModelForm):
             "term": forms.Select(attrs={"class": "form-select"}),
             "year": forms.NumberInput(attrs={"class": "form-control"}),
             "score": forms.NumberInput(attrs={"class": "form-control", "min": 0, "max": 100, "step": "0.01"}),
-            "remarks": forms.TextInput(attrs={"class": "form-control"}),
+           "remarks": forms.Select(attrs={"class": "form-select"}),
         }
 
     def __init__(self, *args, teacher_class=None, **kwargs):

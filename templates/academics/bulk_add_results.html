@@ -33,9 +33,14 @@
                                    value="{% if result %}{{ result.score }}{% endif %}">
                         </td>
                         <td>
-                            <input type="text" class="form-control"
-                                   name="remarks_{{ student.id }}"
-                                   value="{% if result %}{{ result.remarks }}{% endif %}">
+                            <select class="form-select" name="remarks_{{ student.id }}">
+                                <option value="">---------</option>
+                                <option value="POOR" {% if result and result.remarks == "POOR" %}selected{% endif %}>Poor</option>
+                                <option value="FAIR" {% if result and result.remarks == "FAIR" %}selected{% endif %}>Fair</option>
+                                <option value="GOOD" {% if result and result.remarks == "GOOD" %}selected{% endif %}>Good</option>
+                                <option value="VERY_GOOD" {% if result and result.remarks == "VERY_GOOD" %}selected{% endif %}>Very Good</option>
+                                <option value="EXCELLENT" {% if result and result.remarks == "EXCELLENT" %}selected{% endif %}>Excellent</option>
+                            </select>
                         </td>
                     </tr>
                 {% empty %}
