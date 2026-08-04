@@ -133,7 +133,7 @@ def add_result(request):
             result.recorded_by = request.user
             result.save()
             messages.success(request, f"Result saved for {result.student.full_name}.")
-            return redirect("academics:teacher_dashboard")
+            return redirect(f"/teacher/academics/results/?term={result.term}&year={result.year}")
     else:
         form = ResultForm(teacher_class=school_class)
     return render(request, "academics/add_result.html", {"form": form, "school_class": school_class})
@@ -176,8 +176,7 @@ def bulk_add_results(request):
                 )
                 saved_count += 1
             messages.success(request, f"Saved results for {saved_count} pupil(s) in {subject.name} ({term} {year}).")
-            return redirect(f"{request.path}?subject={subject.id}&term={term}&year={year}")
-
+            return redirect(f"/teacher/academics/results/?term={term}&year={year}")
     existing = {}
     if subject:
         existing = {

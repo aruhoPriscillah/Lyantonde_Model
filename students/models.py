@@ -55,8 +55,8 @@ class Student(models.Model):
     former_school = models.CharField(max_length=200, blank=True, help_text="Previous school attended, if any.")
     religion = models.CharField(max_length=20, choices=Religion.choices, blank=True)
     nin = models.CharField(
-        max_length=50, blank=True, verbose_name="NIN (optional)",
-        help_text="National Identification Number, if the pupil has one."
+        max_length=50, blank=True, verbose_name="Guardian NIN (optional)",
+        help_text="National Identification Number of the pupil's guardian, if available."
     )
     guardian_name = models.CharField(max_length=150)
     guardian_phone = models.CharField(max_length=20)
