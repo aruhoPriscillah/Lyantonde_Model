@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Requirements Register{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div><h3 class="mb-1">Requirements Register</h3><div class="text-muted">{{ selected_class|default:"Select a class" }} &middot; {{ term }} {{ year }} &middot; {% if scholar_type == "BOARDING" %}Boarding Scholars{% else %}Day Scholars{% endif %}</div></div>
+    <a href="{% url 'students:headteacher_dashboard' %}" class="btn btn-outline-primary">Dashboard</a>
+</div>
+
+{% if selected_class %}
+<div class="btn-group mb-3" role="group" aria-label="Scholar type">
+    <a class="btn {% if scholar_type == 'DAY' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?class_id={{ selected_class.id }}&term={{ term }}&year={{ year }}&scholar_type=DAY">Day Scholars</a>
+    <a class="btn {% if scholar_type == 'BOARDING' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?class_id={{ selected_class.id }}&term={{ term }}&year={{ year }}&scholar_type=BOARDING">Boarding Scholars</a>
+</div>
+{% endif %}
+
+<form method="get" class="row g-2 align-items-end mb-4">
+    <div class="col-md-3"><label class="form-label" for="class_id">Class</label><select class="form-select" id="class_id" name="class_id">{% for class in classes %}<option value="{{ class.id }}" {% if selected_class.id == class.id %}selected{% endif %}>{{ class.name }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label class="form-label" for="scholar_type">Pupil Type</label><select class="form-select" id="scholar_type" name="scholar_type">{% for value, label in scholar_type_choices %}<option value="{{ value }}" {% if scholar_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><label class="form-label" for="{{ filter_form.term.id_for_label }}">Term</label>{{ filter_form.term }}</div>
+    <div class="col-md-2"><label class="form-label" for="{{ filter_form.year.id_for_label }}">Year</label>{{ filter_form.year }}</div>
+    <div class="col-md-2"><button class="btn btn-secondary w-100" type="submit">Load</button></div>
+</form>
+
+{% if selected_class and not requirements %}
+    <div class="alert alert-warning">No requirements checklist is configured for {{ selected_class }}. Use a Nursery-P7 class name.</div>
+{% elif requirements %}
+{% if saved %}
+<div class="alert alert-success d-flex justify-content-between align-items-center gap-3">
+    <span>Requirements saved successfully.</span>
+    <a class="btn btn-success" href="{% url 'students:export_requirements_register' %}?class_id={{ selected_class.id }}&term={{ term }}&year={{ year }}&scholar_type={{ scholar_type }}">Download Saved List</a>
+</div>
+{% endif %}
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="class_id" value="{{ selected_class.id }}">
+    <input type="hidden" name="term" value="{{ term }}">
+    <input type="hidden" name="year" value="{{ year }}">
+    <input type="hidden" name="scholar_type" value="{{ scholar_type }}">
+    <div class="table-responsive">
+        <table class="table table-bordered align-middle">
+            <thead><tr><th>Admission No.</th><th>Pupil</th>{% for requirement in requirements %}<th class="text-center" style="min-width:115px;">{{ requirement.name }}<div class="mt-1"><input type="checkbox" class="form-check-input requirement-select-all" data-requirement="{{ requirement.id }}" aria-label="Select {{ requirement.name }} for all pupils"></div></th>{% endfor %}<th>Received</th></tr></thead>
+            <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td>{{ row.student.admission_number }}</td><td>{{ row.student.full_name }}</td>
+                    {% for item in row.items %}<td class="text-center"><input class="form-check-input requirement-item" data-requirement="{{ item.requirement.id }}" type="checkbox" name="brought" value="{{ row.student.id }}:{{ item.requirement.id }}" {% if item.record.brought %}checked{% endif %} aria-label="{{ item.requirement.name }} received from {{ row.student.full_name }}"></td>{% endfor %}
+                    <td class="fw-bold">{{ row.received }}/{{ requirements|length }}</td>
+                </tr>
+            {% empty %}<tr><td colspan="20" class="text-center text-muted py-4">No active {% if scholar_type == "BOARDING" %}boarding pupils{% else %}day scholars{% endif %} in this class. A pupil appears here when their Boarding Status is set to {% if scholar_type == "BOARDING" %}Boarding Scholar{% else %}Day Scholar{% endif %} during registration.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <button type="submit" class="btn btn-primary">Save Requirements</button>
+        <a class="btn btn-outline-success" href="{% url 'students:export_requirements_register' %}?class_id={{ selected_class.id }}&term={{ term }}&year={{ year }}&scholar_type={{ scholar_type }}">Download List</a>
+    </div>
+</form>
+{% endif %}
+<script>
+document.querySelectorAll('.requirement-select-all').forEach(function (control) {
+    control.addEventListener('change', function () {
+        document.querySelectorAll('.requirement-item[data-requirement="' + control.dataset.requirement + '"]').forEach(function (item) {
+            item.checked = control.checked;
+        });
+    });
+});
+</script>
+{% endblock %}

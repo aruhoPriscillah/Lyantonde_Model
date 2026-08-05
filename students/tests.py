@@ -1,9 +1,12 @@
 from django.test import TestCase
 from django.urls import reverse
+from openpyxl import load_workbook
+import io
 
 from accounts.models import User
 
-from .models import SchoolClass
+from .models import Requirement, SchoolClass, StudentRequirement
+from .forms import StudentForm
 
 
 class ClassManagementTests(TestCase):
@@ -67,3 +70,153 @@ class ClassManagementTests(TestCase):
         response = self.client.get(reverse("students:manage_classes"))
 
         self.assertNotContains(response, 'value="{}"'.format(teacher.pk))
+
+
+class UgandanNinValidationTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.school_class = SchoolClass.objects.create(name="NIN Test Class")
+
+    def student_data(self, nin):
+        return {
+            "first_name": "Test",
+            "last_name": "Pupil",
+            "gender": "F",
+            "date_of_birth": "2015-01-01",
+            "school_class": self.school_class.pk,
+            "boarding_status": "DAY",
+            "former_school": "",
+            "religion": "",
+            "nin": nin,
+            "guardian_name": "Test Guardian",
+            "guardian_phone": "0700000000",
+            "address": "Lyantonde",
+            "date_admitted": "2026-01-01",
+        }
+
+    def test_accepts_and_normalizes_valid_ugandan_nin(self):
+        form = StudentForm(data=self.student_data("cm4900906p76ze"))
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["nin"], "CM4900906P76ZE")
+
+    def test_rejects_wrong_prefix_or_length(self):
+        for nin in ("UG4900906P76ZE", "CM123", "CM4900906P76ZE9", "CF4900906P76-_"):
+            with self.subTest(nin=nin):
+                form = StudentForm(data=self.student_data(nin))
+                self.assertFalse(form.is_valid())
+                self.assertIn("nin", form.errors)
+
+    def test_nin_remains_optional(self):
+        form = StudentForm(data=self.student_data(""))
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+
+class RequirementsRegisterTests(TestCase):
+    def setUp(self):
+        self.headteacher = User.objects.create_user(
+            username="requirements-head", password="test-password", role=User.Role.HEADTEACHER
+        )
+        self.school_class = SchoolClass.objects.create(name="P6")
+        self.student = self.school_class.students.create(
+            first_name="Requirements",
+            last_name="Pupil",
+            gender="M",
+            date_of_birth="2015-01-01",
+            guardian_name="Parent",
+            guardian_phone="0700000000",
+        )
+        self.boarding_student = self.school_class.students.create(
+            first_name="Boarding",
+            last_name="Pupil",
+            gender="F",
+            date_of_birth="2015-02-01",
+            boarding_status="BOARDING",
+            guardian_name="Parent",
+            guardian_phone="0700000001",
+        )
+        self.client.force_login(self.headteacher)
+
+    def test_register_loads_requirements_for_selected_class_group(self):
+        response = self.client.get(reverse("students:requirements_register"), {
+            "class_id": self.school_class.pk, "term": "TERM1", "year": 2026,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "1 mathematics set")
+        self.assertContains(response, "Atlas")
+        self.assertNotContains(response, "1 packet of crayons")
+
+    def test_saves_checked_and_unchecked_requirements(self):
+        requirements = list(Requirement.objects.filter(
+            class_group=Requirement.ClassGroup.P4_P7, scholar_type="DAY"
+        ))
+        checked = requirements[:2]
+        response = self.client.post(reverse("students:requirements_register"), {
+            "class_id": self.school_class.pk,
+            "term": "TERM2",
+            "year": 2026,
+            "brought": [f"{self.student.pk}:{requirement.pk}" for requirement in checked],
+        })
+
+        self.assertEqual(response.status_code, 302)
+        records = StudentRequirement.objects.filter(student=self.student, term="TERM2", year=2026)
+        self.assertEqual(records.count(), len(requirements))
+        self.assertEqual(records.filter(brought=True).count(), 2)
+        self.assertTrue(all(record.brought_on is not None for record in records.filter(brought=True)))
+        self.assertTrue(all(record.recorded_by == self.headteacher for record in records))
+
+    def test_downloads_saved_requirements_list(self):
+        requirement = Requirement.objects.filter(
+            class_group=Requirement.ClassGroup.P4_P7, scholar_type="DAY"
+        ).first()
+        StudentRequirement.objects.create(
+            student=self.student,
+            requirement=requirement,
+            term="TERM1",
+            year=2026,
+            brought=True,
+            recorded_by=self.headteacher,
+        )
+
+        response = self.client.get(reverse("students:export_requirements_register"), {
+            "class_id": self.school_class.pk,
+            "term": "TERM1",
+            "year": 2026,
+            "scholar_type": "DAY",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        workbook = load_workbook(io.BytesIO(response.content), read_only=True, data_only=True)
+        values = list(workbook.active.iter_rows(values_only=True))
+        flattened = {value for row in values for value in row if value is not None}
+        self.assertIn(self.student.admission_number, flattened)
+        self.assertIn("Brought", flattened)
+        self.assertIn("Missing", flattened)
+
+    def test_boarding_register_is_separate_from_day_register(self):
+        boarding_response = self.client.get(reverse("students:requirements_register"), {
+            "class_id": self.school_class.pk,
+            "term": "TERM1",
+            "year": 2026,
+            "scholar_type": "BOARDING",
+        })
+        day_response = self.client.get(reverse("students:requirements_register"), {
+            "class_id": self.school_class.pk,
+            "term": "TERM1",
+            "year": 2026,
+            "scholar_type": "DAY",
+        })
+
+        self.assertContains(boarding_response, self.boarding_student.full_name)
+        self.assertContains(boarding_response, 'name="brought"')
+        self.assertContains(boarding_response, "requirement-select-all")
+        self.assertNotContains(boarding_response, self.student.full_name)
+        self.assertContains(boarding_response, "Mattress, blanket")
+        self.assertNotContains(boarding_response, "4 toilet rolls")
+        self.assertContains(day_response, self.student.full_name)
+        self.assertNotContains(day_response, self.boarding_student.full_name)
+        self.assertContains(day_response, "4 toilet rolls")
+        self.assertNotContains(day_response, "Mattress, blanket")

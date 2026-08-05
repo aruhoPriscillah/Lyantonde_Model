@@ -35,11 +35,19 @@ class StudentForm(forms.ModelForm):
             "boarding_status": forms.Select(attrs={"class": "form-select"}),
             "former_school": forms.TextInput(attrs={"class": "form-control"}),
            "religion": forms.Select(attrs={"class": "form-select"}),
-            "nin": forms.TextInput(attrs={"class": "form-control"}),
+            "nin": forms.TextInput(attrs={
+                "class": "form-control",
+                "maxlength": 14,
+                "placeholder": "e.g. CM4900906P76ZE",
+                "autocomplete": "off",
+            }),
             "guardian_name": forms.TextInput(attrs={"class": "form-control"}),
             "guardian_phone": forms.TextInput(attrs={"class": "form-control"}),
             "address": forms.TextInput(attrs={"class": "form-control"}),
         }
+
+    def clean_nin(self):
+        return self.cleaned_data.get("nin", "").strip().upper()
 
 
 class SchoolClassForm(forms.ModelForm):
