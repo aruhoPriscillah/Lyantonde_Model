@@ -150,9 +150,40 @@ class ExcelResultImportTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         workbook = load_workbook(io.BytesIO(response.content), read_only=True, data_only=True)
+        headers = [cell.value for cell in workbook.active[1]]
         rows = list(workbook.active.iter_rows(min_row=2, values_only=True))
         self.assertEqual({row[0] for row in rows}, {self.student.admission_number})
-        self.assertEqual({row[2] for row in rows}, {"Mathematics", "English", "SST", "Science"})
+        for subject in ("Mathematics", "English", "SST", "Science"):
+            self.assertIn(f"{subject} Score", headers)
+            self.assertIn(f"{subject} Grade", headers)
+            self.assertIn(f"{subject} Aggregate", headers)
+            self.assertIn(f"{subject} Remarks", headers)
+        self.assertIn("Total", headers)
+        self.assertIn("Average", headers)
+        self.assertIn("Total Aggregate", headers)
+
+    def test_imports_standard_wide_class_sheet(self):
+        template = self.client.get(
+            reverse("academics:download_results_template"), {"term": "TERM2", "year": 2026}
+        )
+        workbook = load_workbook(io.BytesIO(template.content))
+        sheet = workbook.active
+        headers = {cell.value: cell.column for cell in sheet[1]}
+        sheet.cell(row=2, column=headers["Mathematics Score"], value=91)
+        sheet.cell(row=2, column=headers["Mathematics Remarks"], value="Excellent")
+        buffer = io.BytesIO()
+        workbook.save(buffer)
+        upload = SimpleUploadedFile(
+            "wide-results.xlsx", buffer.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        response = self.client.post(reverse("academics:import_results_excel"), {"excel_file": upload})
+
+        self.assertEqual(response.status_code, 302)
+        result = Result.objects.get(student=self.student, subject=self.math, term="TERM2", year=2026)
+        self.assertEqual(result.score, 91)
+        self.assertEqual(result.remarks, "EXCELLENT")
 
     def test_imports_valid_excel_results(self):
         upload = self.workbook_upload([[

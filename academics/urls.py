@@ -16,8 +16,6 @@ urlpatterns = [
     path("grading-scale/<int:pk>/delete/", views.delete_grading_scale, name="delete_grading_scale"),
     path("class-list/export/<str:filetype>/", views.export_class_list, name="export_class_list"),
     path("results/bulk-add/", views.bulk_add_results, name="bulk_add_results"),
-    path("results/excel-template/", views.download_results_template, name="download_results_template"),
-    path("results/import-excel/", views.import_results_excel, name="import_results_excel"),
     path("subjects/", views.manage_subjects, name="manage_subjects"),
     path("subjects/<int:pk>/delete/", views.delete_subject, name="delete_subject"),
 ]

@@ -1,10 +1,6 @@
 import datetime
-import io
 import re
-from decimal import Decimal, InvalidOperation
 from django.contrib import messages
-from django.db import transaction
-from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.exceptions import PermissionDenied
 
@@ -20,13 +16,11 @@ from reportsapp.utils import (
 from students.models import SchoolClass, Student
 from fees.forms import TermYearFilterForm
 from fees.models import fee_status_for_student, TERM_CHOICES
-from .forms import ResultExcelUploadForm, ResultForm, GradingScaleForm, BulkResultFilterForm, SubjectForm
-from .models import Result, Subject, GradingScale, Remark
+from .forms import ResultForm, GradingScaleForm, BulkResultFilterForm, SubjectForm
+from .models import Result, Subject, GradingScale
 from .subject_sets import is_lower_primary_class, is_nursery_class, is_upper_primary_class
 from .subject_sets import NURSERY_SUBJECT_NAMES
 from .subject_sets import subject_names_for_class
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Font, PatternFill
 
 CURRENT_YEAR = datetime.date.today().year
 DEFAULT_TERM = "TERM1"
@@ -225,7 +219,6 @@ def bulk_add_results(request):
         "subject": subject,
         "term": term,
         "year": year,
-        "upload_form": ResultExcelUploadForm(),
     })
 
 
@@ -245,23 +238,58 @@ def download_results_template(request):
         year = CURRENT_YEAR
 
     allowed_names = subject_names_for_class(school_class)
-    subjects = Subject.objects.filter(name__in=allowed_names).order_by("name") if allowed_names else Subject.objects.all().order_by("name")
+    if allowed_names:
+        subject_lookup = {subject.name: subject for subject in Subject.objects.filter(name__in=allowed_names)}
+        subjects = [subject_lookup[name] for name in allowed_names if name in subject_lookup]
+    else:
+        subjects = list(Subject.objects.all().order_by("name"))
     students = school_class.students.filter(is_active=True).order_by("admission_number")
+    existing = {
+        (result.student_id, result.subject_id): result
+        for result in Result.objects.filter(
+            student__in=students, subject__in=subjects, term=term, year=year
+        )
+    }
 
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Results"
-    headers = ["Admission Number", "Pupil Name", "Subject", "Score", "Remarks", "Term", "Year"]
+    headers = ["Admission Number", "Pupil Name"]
+    for subject in subjects:
+        headers.extend([
+            f"{subject.name} Score",
+            f"{subject.name} Grade",
+            f"{subject.name} Aggregate",
+            f"{subject.name} Remarks",
+        ])
+    headers.extend(["Total", "Average", "Total Aggregate", "Term", "Year"])
     sheet.append(headers)
     for cell in sheet[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="1F4E78")
     for student in students:
+        row = [student.admission_number, student.full_name]
+        scores = []
+        aggregates = []
         for subject in subjects:
-            sheet.append([student.admission_number, student.full_name, subject.name, "", "", term, year])
-    widths = [20, 28, 28, 12, 18, 12, 12]
-    for index, width in enumerate(widths, start=1):
-        sheet.column_dimensions[chr(64 + index)].width = width
+            result = existing.get((student.id, subject.id))
+            if result:
+                grade = result.grade()
+                match = re.search(r"(\d+)$", grade)
+                aggregate = int(match.group(1)) if match else ""
+                scores.append(result.score)
+                if aggregate != "":
+                    aggregates.append(aggregate)
+                row.extend([result.score, grade, aggregate, result.get_remarks_display() if result.remarks else ""])
+            else:
+                row.extend(["", "", "", ""])
+        total = sum(scores) if scores else ""
+        average = total / len(scores) if scores else ""
+        row.extend([total, average, sum(aggregates) if aggregates else "", term, year])
+        sheet.append(row)
+    for index, header in enumerate(headers, start=1):
+        width = 20 if index == 1 else 28 if index == 2 else max(13, min(len(header) + 2, 24))
+        sheet.column_dimensions[get_column_letter(index)].width = width
     sheet.freeze_panes = "A2"
 
     buffer = io.BytesIO()
@@ -279,6 +307,70 @@ def _normalize_term(value):
     normalized = str(value or "").strip().upper().replace(" ", "")
     aliases = {"1": "TERM1", "2": "TERM2", "3": "TERM3"}
     return aliases.get(normalized, normalized)
+
+
+def _parse_wide_result_rows(
+    sheet, header_values, admission_column, students, subjects, remark_values,
+    valid_terms, default_term, default_year,
+):
+    subject_columns = {
+        subject: {
+            "score": next((i for i, value in enumerate(header_values) if value == f"{subject.name.lower()} score"), None),
+            "remarks": next((i for i, value in enumerate(header_values) if value == f"{subject.name.lower()} remarks"), None),
+        }
+        for subject in subjects.values()
+    }
+    term_column = next((i for i, value in enumerate(header_values) if value == "term"), None)
+    year_column = next((i for i, value in enumerate(header_values) if value == "year"), None)
+    if not any(columns["score"] is not None for columns in subject_columns.values()):
+        return [], ["No class subject Score columns were found in the workbook."]
+
+    parsed_rows = []
+    errors = []
+    for row_number, values in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+        populated = [
+            (subject, columns, values[columns["score"]] if columns["score"] is not None and columns["score"] < len(values) else None)
+            for subject, columns in subject_columns.items()
+        ]
+        populated = [entry for entry in populated if entry[2] is not None and str(entry[2]).strip() != ""]
+        if not populated:
+            continue
+        admission = str(values[admission_column] or "").strip().upper()
+        student = students.get(admission)
+        if not student:
+            errors.append(f"Row {row_number}: pupil {admission or '-'} is not active in this class.")
+
+        term_value = values[term_column] if term_column is not None and term_column < len(values) else default_term
+        term = _normalize_term(term_value or default_term)
+        if term not in valid_terms:
+            errors.append(f"Row {row_number}: invalid term '{term_value}'.")
+        year_value = values[year_column] if year_column is not None and year_column < len(values) else default_year
+        try:
+            year = int(year_value or default_year)
+            if year < 2000 or year > 2100:
+                raise ValueError
+        except (TypeError, ValueError):
+            errors.append(f"Row {row_number}: invalid year '{year_value}'.")
+            year = None
+
+        for subject, columns, score_raw in populated:
+            try:
+                score = Decimal(str(score_raw))
+                if score < 0 or score > 100:
+                    raise ValueError
+            except (InvalidOperation, TypeError, ValueError):
+                errors.append(f"Row {row_number}: {subject.name} score must be between 0 and 100.")
+                continue
+            remark_raw = ""
+            if columns["remarks"] is not None and columns["remarks"] < len(values):
+                remark_raw = str(values[columns["remarks"]] or "").strip()
+            remark = remark_values.get(remark_raw, remark_values.get(remark_raw.lower())) if remark_raw else ""
+            if remark_raw and not remark:
+                errors.append(f"Row {row_number}: invalid {subject.name} remark '{remark_raw}'.")
+                continue
+            if student and term in valid_terms and year is not None:
+                parsed_rows.append((student, subject, score, remark, term, year))
+    return parsed_rows, errors
 
 
 @role_required(User.Role.TEACHER)
@@ -320,7 +412,9 @@ def import_results_excel(request):
         key: next((index for index, header in enumerate(header_values) if header in names), None)
         for key, names in aliases.items()
     }
-    missing = [name for name in ("admission", "subject", "score") if columns[name] is None]
+    wide_format = columns["subject"] is None
+    required_columns = ("admission",) if wide_format else ("admission", "subject", "score")
+    missing = [name for name in required_columns if columns[name] is None]
     if missing:
         messages.error(request, "Missing required Excel columns: " + ", ".join(missing) + ".")
         return redirect("academics:bulk_add_results")
@@ -340,7 +434,12 @@ def import_results_excel(request):
 
     parsed_rows = []
     errors = []
-    for row_number, values in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+    if wide_format:
+        parsed_rows, errors = _parse_wide_result_rows(
+            sheet, header_values, columns["admission"], students, subjects,
+            remark_values, valid_terms, default_term, default_year,
+        )
+    for row_number, values in ([] if wide_format else enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2)):
         score_raw = values[columns["score"]] if columns["score"] < len(values) else None
         if score_raw is None or str(score_raw).strip() == "":
             continue

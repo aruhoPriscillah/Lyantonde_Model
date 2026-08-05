@@ -1,18 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Teacher Dashboard{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3>Teacher Dashboard {% if school_class %}&mdash; {{ school_class }}{% endif %}</h3>
-    {% if school_class %}
-    <div>
-        <a href="{% url 'academics:bulk_add_results' %}" class="btn btn-primary">+ Add Results (Whole Class)</a>
-        <a href="{% url 'academics:add_result' %}" class="btn btn-outline-primary">+ Add Single Result</a>
-        <a href="{% url 'academics:class_results' %}" class="btn btn-outline-secondary">View Results</a>
-        <a href="{% url 'academics:export_class_list' 'pdf' %}" class="btn btn-outline-danger">Class List (PDF)</a>
-        <a href="{% url 'academics:export_class_list' 'xlsx' %}" class="btn btn-outline-success">Class List (Excel)</a>
-    </div>
-    {% endif %}
-</div>
+<h3 class="mb-4">Teacher Dashboard {% if school_class %}&mdash; {{ school_class }}{% endif %}</h3>
 
 {% if not school_class %}
     <div class="alert alert-warning">You are not currently assigned as class teacher for any class. Contact the headteacher.</div>
