@@ -8,13 +8,18 @@
             <h5>Add Class</h5>
             <form method="post">
                 {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                {% endif %}
                 <div class="mb-3">
-                    <label class="form-label">Class Name</label>
+                    <label class="form-label" for="{{ form.name.id_for_label }}">Class Name</label>
                     {{ form.name }}
+                    {% for error in form.name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Class Teacher</label>
+                    <label class="form-label" for="{{ form.class_teacher.id_for_label }}">Class Teacher</label>
                     {{ form.class_teacher }}
+                    {% for error in form.class_teacher.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                 </div>
                 <button type="submit" class="btn btn-primary">Save</button>
             </form>

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load fees_format %}
+{% block title %}Nursery Report - {{ student.full_name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>End of Term Report</h3>
+    <a href="{% url 'academics:export_report_card' student.pk %}?term={{ term }}&year={{ year }}" class="btn btn-outline-danger btn-sm">Export / Print PDF</a>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">{{ filter_form.term }}</div>
+    <div class="col-auto">{{ filter_form.year }}</div>
+    <div class="col-auto"><button class="btn btn-secondary" type="submit">Filter</button></div>
+</form>
+
+<section class="nursery-report border p-4 mx-auto bg-white" style="max-width:800px;">
+    <header class="text-center mb-3">
+        <h3 class="mb-1">LYANTONDE MODEL PRIMARY SCHOOL</h3>
+        <div>P.O. BOX 93, LYANTONDE</div>
+        <div>0756001495 / 0752834565 / 0789228711</div>
+        <small><em>Motto: "We strive for quality education"</em></small>
+        <h5 class="mt-2">END OF TERM REPORT</h5>
+    </header>
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-8"><strong>Pupil's name:</strong> {{ student.full_name }}</div>
+        <div class="col-md-4"><strong>Sex:</strong> {{ student.get_gender_display }}</div>
+        <div class="col-md-4"><strong>Class:</strong> {{ student.school_class }}</div>
+        <div class="col-md-4"><strong>Term:</strong> {{ term }}</div>
+        <div class="col-md-4"><strong>Year:</strong> {{ year }}</div>
+        <div class="col-md-8"><strong>Position:</strong> {{ position|default:"-" }} out of {{ class_size|default:"-" }}</div>
+    </div>
+
+    <h6 class="text-center">END OF TERM RESULTS</h6>
+    <div class="table-responsive">
+        <table class="table table-bordered align-middle">
+            <thead><tr><th>Subject</th><th>Marks (%)</th><th>Remarks</th><th>Initials</th></tr></thead>
+            <tbody>
+            {% for row in nursery_rows %}
+                <tr><td>{{ row.subject }}</td><td>{{ row.score|floatformat:0 }}</td><td>{{ row.remarks }}</td><td>{{ row.initials }}</td></tr>
+            {% empty %}
+                <tr><td colspan="4" class="text-center text-muted">No results recorded for this term.</td></tr>
+            {% endfor %}
+            <tr class="fw-bold"><td>Total</td><td>{{ total|floatformat:0 }}</td><td colspan="2"></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p class="mt-4">Class Teacher's comment: ______________________________________________</p>
+    <p>Headteacher's report: _________________________________________________</p>
+    {% if fee_status %}<p>School fees balance: <strong>{{ fee_status.balance|ugx }}</strong></p>{% endif %}
+    <p class="mt-4">I have seen and read the report. Parent/Guardian: _________________________</p>
+</section>
+{% endblock %}

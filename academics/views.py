@@ -5,7 +5,12 @@ from django.core.exceptions import PermissionDenied
 
 from accounts.decorators import role_required
 from accounts.models import User
-from reportsapp.utils import export_excel, export_pdf, export_report_card_pdf
+from reportsapp.utils import (
+    export_excel,
+    export_nursery_report_card_pdf,
+    export_pdf,
+    export_report_card_pdf,
+)
 from students.models import SchoolClass, Student
 from fees.forms import TermYearFilterForm
 from fees.models import fee_status_for_student, TERM_CHOICES
@@ -14,6 +19,17 @@ from .models import Result, Subject, GradingScale
 
 CURRENT_YEAR = datetime.date.today().year
 DEFAULT_TERM = "TERM1"
+
+NURSERY_CLASS_NAMES = {"baby", "nursery", "middle", "top"}
+
+
+def is_nursery_class(school_class):
+    if not school_class:
+        return False
+    normalized = " ".join(school_class.name.lower().replace("-", " ").split())
+    if normalized.endswith(" class"):
+        normalized = normalized[:-6].strip()
+    return normalized in NURSERY_CLASS_NAMES
 
 @role_required(User.Role.HEADTEACHER)
 def manage_subjects(request):
@@ -337,6 +353,23 @@ def student_report_data(student, term, year):
     return subject_rows, total, average, position, class_size
 
 
+def nursery_report_rows(student, term, year):
+    results = (
+        Result.objects.select_related("subject", "recorded_by")
+        .filter(student=student, term=term, year=year)
+        .order_by("subject__name")
+    )
+    return [
+        {
+            "subject": result.subject.name,
+            "score": result.score,
+            "remarks": result.remarks or result.grade(),
+            "initials": result.recorded_by.get_full_name()[:1] if result.recorded_by else "",
+        }
+        for result in results
+    ]
+
+
 def _can_view_student(user, student):
     if user.role in (User.Role.HEADTEACHER, User.Role.BURSAR):
         return True
@@ -359,10 +392,11 @@ def report_card(request, pk):
 
     subject_rows, total, average, position, class_size = student_report_data(student, term, year)
     fee_status = fee_status_for_student(student, term, year) if student.school_class else None
+    nursery_report = is_nursery_class(student.school_class)
 
     return render(
         request,
-        "academics/report_card.html",
+        "academics/nursery_report_card.html" if nursery_report else "academics/report_card.html",
         {
             "student": student,
             "term": term,
@@ -374,6 +408,7 @@ def report_card(request, pk):
             "position": position,
             "class_size": class_size,
             "fee_status": fee_status,
+            "nursery_rows": nursery_report_rows(student, term, year) if nursery_report else [],
         },
     )
 
@@ -392,6 +427,17 @@ def export_report_card(request, pk):
     fee_status = fee_status_for_student(student, term, year) if student.school_class else None
 
     fname = f"report_card_{student.admission_number}_{term}_{year}"
+    if is_nursery_class(student.school_class):
+        return export_nursery_report_card_pdf(
+            fname,
+            student,
+            term_label,
+            year,
+            nursery_report_rows(student, term, year),
+            position,
+            class_size,
+            fee_status,
+        )
     return export_report_card_pdf(
         fname, student, term_label, year, subject_rows, total, average, position, class_size, fee_status
     )

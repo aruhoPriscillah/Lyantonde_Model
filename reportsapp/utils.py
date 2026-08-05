@@ -8,6 +8,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.enums import TA_CENTER
 from functools import lru_cache
 from django.conf import settings
 from openpyxl.drawing.image import Image as XLImage
@@ -240,6 +241,103 @@ def export_report_card_pdf(filename, student, term_label, year, subject_rows, to
     doc.build(elements, onFirstPage=_draw_watermark, onLaterPages=_draw_watermark)
     buffer.seek(0)
 
+    response = HttpResponse(buffer.read(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
+    return response
+
+
+def export_nursery_report_card_pdf(
+    filename, student, term_label, year, nursery_rows, position=None, class_size=None, fee_status=None
+):
+    """Build the compact A4 report used by Nursery, Middle, and Top classes."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=1.5 * cm,
+        rightMargin=1.5 * cm,
+        topMargin=1.2 * cm,
+        bottomMargin=1.2 * cm,
+    )
+    styles = getSampleStyleSheet()
+    centered = styles["Normal"].clone("NurseryCentered")
+    centered.alignment = TA_CENTER
+    centered.fontSize = 9
+    centered.leading = 12
+
+    elements = []
+    logo = str(SCHOOL_BADGE_PATH) if SCHOOL_BADGE_PATH.exists() else None
+    heading = [
+        Paragraph("<b>LYANTONDE MODEL PRIMARY SCHOOL</b>", styles["Title"]),
+        Paragraph("P.O. BOX 93, LYANTONDE", centered),
+        Paragraph("0756001495 / 0752834565 / 0789228711", centered),
+        Paragraph('<i>Motto: "We strive for quality education"</i>', centered),
+        Paragraph("<b>END OF TERM REPORT</b>", centered),
+    ]
+    if logo:
+        from reportlab.platypus import Image
+
+        header = Table([[Image(logo, width=2 * cm, height=2 * cm), heading]], colWidths=[2.5 * cm, 14.5 * cm])
+        header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+        elements.append(header)
+    else:
+        elements.extend(heading)
+    elements.append(Spacer(1, 8))
+
+    pupil_data = [
+        ["PUPIL'S NAME", student.full_name, "SEX", student.get_gender_display()],
+        ["CLASS", str(student.school_class), "TERM", term_label],
+        ["POSITION", f"{position or '-'} out of {class_size or '-'}", "YEAR", str(year)],
+    ]
+    pupil_table = Table(pupil_data, colWidths=[3 * cm, 7 * cm, 2.5 * cm, 4.5 * cm])
+    pupil_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("LINEBELOW", (1, 0), (1, -1), 0.35, colors.grey),
+        ("LINEBELOW", (3, 0), (3, -1), 0.35, colors.grey),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    elements.extend([pupil_table, Spacer(1, 10), Paragraph("<b>END OF TERM RESULTS</b>", centered)])
+
+    result_data = [["SUBJECT", "MARKS (%)", "REMARKS", "INITIALS"]]
+    result_data.extend([
+        [row["subject"], f'{row["score"]:.0f}', row["remarks"], row["initials"]]
+        for row in nursery_rows
+    ])
+    if not nursery_rows:
+        result_data.append(["No results recorded", "-", "-", "-"])
+    result_data.append(["TOTAL", f'{sum(row["score"] for row in nursery_rows):.0f}', "", ""])
+    results_table = Table(result_data, colWidths=[6 * cm, 3 * cm, 5.5 * cm, 2.5 * cm], repeatRows=1)
+    results_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E7ECE8")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, -1), (1, -1), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (1, 1), (1, -1), "CENTER"),
+        ("ALIGN", (3, 1), (3, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    elements.extend([results_table, Spacer(1, 14)])
+
+    elements.append(Paragraph("Class Teacher's comment: _________________________________________________", styles["Normal"]))
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph("Headteacher's report: ____________________________________________________", styles["Normal"]))
+    elements.append(Spacer(1, 18))
+    if fee_status is not None:
+        elements.append(Paragraph(
+            f"Next term begins on: ____________________ &nbsp;&nbsp;&nbsp; "
+            f"School fees balance: <b>{format_ugx(fee_status['balance'])}</b>",
+            styles["Normal"],
+        ))
+    elements.append(Spacer(1, 18))
+    elements.append(Paragraph("I have seen and read the report. Parent/Guardian: __________________________", styles["Normal"]))
+
+    doc.build(elements, onFirstPage=_draw_watermark, onLaterPages=_draw_watermark)
+    buffer.seek(0)
     response = HttpResponse(buffer.read(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
     return response
