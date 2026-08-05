@@ -10,7 +10,7 @@ class PaymentForm(forms.ModelForm):
             "student": forms.Select(attrs={"class": "form-select"}),
             "term": forms.Select(attrs={"class": "form-select"}),
             "year": forms.NumberInput(attrs={"class": "form-control"}),
-            "amount": forms.NumberInput(attrs={"class": "form-control"}),
+            "amount": forms.NumberInput(attrs={"class": "form-control", "min": "0.01", "step": "0.01"}),
             "method": forms.Select(attrs={"class": "form-select"}),
             "reference": forms.TextInput(attrs={"class": "form-control"}),
         }
@@ -25,7 +25,7 @@ class FeeStructureForm(forms.ModelForm):
             "term": forms.Select(attrs={"class": "form-select"}),
             "year": forms.NumberInput(attrs={"class": "form-control"}),
             "boarding_status": forms.Select(attrs={"class": "form-select"}),
-            "amount": forms.NumberInput(attrs={"class": "form-control"}),
+            "amount": forms.NumberInput(attrs={"class": "form-control", "min": "0.01", "step": "0.01"}),
         }
 
 

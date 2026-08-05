@@ -5,6 +5,7 @@ from django.test import SimpleTestCase, TestCase
 
 from students.models import SchoolClass, Student
 
+from .forms import PaymentForm
 from .models import FeeStructure, Payment, fee_status_for_student
 from .utils import format_ugx
 
@@ -79,3 +80,40 @@ class PreviousBalanceTests(TestCase):
 
         self.assertEqual(status["previous_balance"], Decimal("-10000"))
         self.assertEqual(status["total_due"], Decimal("110000"))
+
+
+class PaymentAmountValidationTests(TestCase):
+    def setUp(self):
+        school_class = SchoolClass.objects.create(name="Payment Validation Class")
+        self.student = Student.objects.create(
+            first_name="Payment",
+            last_name="Pupil",
+            gender="F",
+            date_of_birth="2015-01-01",
+            school_class=school_class,
+            guardian_name="Guardian",
+            guardian_phone="0700000000",
+        )
+
+    def form_for_amount(self, amount):
+        return PaymentForm(data={
+            "student": self.student.pk,
+            "term": "TERM1",
+            "year": 2026,
+            "amount": amount,
+            "method": "CASH",
+            "reference": "",
+        })
+
+    def test_rejects_zero_payment(self):
+        form = self.form_for_amount("0")
+        self.assertFalse(form.is_valid())
+        self.assertIn("Payment amount must be greater than zero.", form.errors["amount"])
+
+    def test_rejects_negative_payment(self):
+        form = self.form_for_amount("-5000")
+        self.assertFalse(form.is_valid())
+        self.assertIn("Payment amount must be greater than zero.", form.errors["amount"])
+
+    def test_accepts_positive_payment(self):
+        self.assertTrue(self.form_for_amount("0.01").is_valid())

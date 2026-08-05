@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 
 from .utils import format_ugx
@@ -42,7 +45,10 @@ class Payment(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="payments")
     term = models.CharField(max_length=10, choices=TERM_CHOICES)
     year = models.PositiveIntegerField()
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    amount = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"), "Payment amount must be greater than zero.")],
+    )
     method = models.CharField(max_length=20, choices=METHOD_CHOICES, default="CASH")
     date_paid = models.DateField(auto_now_add=True)
     received_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
@@ -50,6 +56,9 @@ class Payment(models.Model):
 
     class Meta:
         ordering = ["-date_paid"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gt=0), name="payment_amount_gt_zero"),
+        ]
 
     def __str__(self):
         return f"{self.student.admission_number} paid {format_ugx(self.amount)} ({self.get_term_display()} {self.year})"
