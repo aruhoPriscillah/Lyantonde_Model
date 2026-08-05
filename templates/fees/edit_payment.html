@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Edit Payment{% endblock %}
 {% block content %}
+{% load humanize %}
 <h3 class="mb-4">Edit Payment &mdash; {{ payment.student.full_name }}</h3>
 <div class="card p-4" style="max-width:600px;">
     <form method="post">

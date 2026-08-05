@@ -14,6 +14,7 @@ from openpyxl.drawing.image import Image as XLImage
 from openpyxl.utils import get_column_letter
 from PIL import Image as PILImage
 from reportlab.lib.utils import ImageReader
+from fees.utils import format_ugx
 
 SCHOOL_BADGE_PATH = settings.BASE_DIR / "static" / "img" / "school_badge.jpeg"
 
@@ -224,8 +225,8 @@ def export_report_card_pdf(filename, student, term_label, year, subject_rows, to
     if fee_status is not None:
         elements.append(Spacer(1, 10))
         fee_line = (
-            f"<b>Fees ({term_label} {year}):</b> Expected {fee_status['expected']:.2f}, "
-            f"Paid {fee_status['paid']:.2f}, Balance {fee_status['balance']:.2f} "
+            f"<b>Fees ({term_label} {year}):</b> Expected {format_ugx(fee_status['expected'])}, "
+            f"Paid {format_ugx(fee_status['paid'])}, Balance {format_ugx(fee_status['balance'])} "
             f"({'DEFAULTER' if fee_status['is_defaulter'] else 'Cleared'})"
         )
         elements.append(Paragraph(fee_line, styles["Normal"]))

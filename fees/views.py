@@ -8,6 +8,7 @@ from reportsapp.utils import export_excel, export_pdf
 from students.models import Student
 from .forms import PaymentForm, FeeStructureForm, TermYearFilterForm, VaultFilterForm
 from .models import all_defaulters, fee_status_for_student, FeeStructure, Payment
+from .utils import format_ugx
 from django.db.models import Sum
 from .models import all_defaulters, fee_status_for_student, FeeStructure, Payment
 
@@ -83,7 +84,7 @@ def record_payment(request):
             payment.save()
             messages.success(
                 request,
-                f"Payment of {payment.amount} recorded for {payment.student.full_name}.",
+                f"Payment of {format_ugx(payment.amount)} recorded for {payment.student.full_name}.",
             )
             return redirect("fees:student_fee_detail", pk=payment.student.pk)
     else:
@@ -199,9 +200,9 @@ def _fee_report_rows(term, year, defaulters_only=False):
             r["student"].admission_number,
             r["student"].full_name,
             r["student"].school_class.name if r["student"].school_class else "-",
-            f"{r['expected']:.2f}",
-            f"{r['paid']:.2f}",
-            f"{r['balance']:.2f}",
+            format_ugx(r["expected"]),
+            format_ugx(r["paid"]),
+            format_ugx(r["balance"]),
             "DEFAULTER" if r["is_defaulter"] else "Cleared",
         ]
         for r in rows_data

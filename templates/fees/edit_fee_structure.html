@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Edit Fee Structure{% endblock %}
 {% block content %}
+{% load humanize %}
 <h3 class="mb-4">Edit Fee Structure &mdash; {{ structure.school_class }}</h3>
 <div class="card p-4" style="max-width: 500px;">
     <form method="post">

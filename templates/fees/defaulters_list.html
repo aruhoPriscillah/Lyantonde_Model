@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Defaulters{% endblock %}
 {% block content %}
+{% load fees_format %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h3>Defaulters &mdash; {{ term }} {{ year }}</h3>
     <div>
@@ -23,9 +24,9 @@
                 <td>{{ row.student.admission_number }}</td>
                 <td>{{ row.student.full_name }}</td>
                 <td>{{ row.student.school_class|default:"-" }}</td>
-                <td>{{ row.expected }}</td>
-                <td>{{ row.paid }}</td>
-                <td class="text-danger fw-bold">{{ row.balance }}</td>
+                <td>{{ row.expected|ugx }}</td>
+                <td>{{ row.paid|ugx }}</td>
+                <td class="text-danger fw-bold">{{ row.balance|ugx }}</td>
             </tr>
         {% empty %}
             <tr><td colspan="6" class="text-center text-muted">No defaulters. 🎉</td></tr>

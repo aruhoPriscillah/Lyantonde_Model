@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Fee Structure{% endblock %}
 {% block content %}
+{% load fees_format %}
 <h3 class="mb-4">Fee Structure</h3>
 <div class="row">
     <div class="col-md-5">
@@ -29,7 +30,7 @@
                         <td>{{ s.get_term_display }}</td>
                         <td>{{ s.year }}</td>
                         <td>{{ s.get_boarding_status_display }}</td>
-                        <td>{{ s.amount }}</td>
+                        <td>{{ s.amount|ugx }}</td>
                         <td><a href="{% url 'fees:edit_fee_structure' s.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a></td>
                     </tr>
                 {% empty %}

@@ -1,5 +1,7 @@
 from django.conf import settings
 from django.db import models
+
+from .utils import format_ugx
 from students.models import Student, SchoolClass
 
 
@@ -26,7 +28,7 @@ class FeeStructure(models.Model):
         ordering = ["-year", "term"]
 
     def __str__(self):
-        return f"{self.school_class} - {self.get_term_display()} {self.year}: {self.amount}"
+        return f"{self.school_class} - {self.get_term_display()} {self.year}: {format_ugx(self.amount)}"
 
 
 class Payment(models.Model):
@@ -50,7 +52,7 @@ class Payment(models.Model):
         ordering = ["-date_paid"]
 
     def __str__(self):
-        return f"{self.student.admission_number} paid {self.amount} ({self.get_term_display()} {self.year})"
+        return f"{self.student.admission_number} paid {format_ugx(self.amount)} ({self.get_term_display()} {self.year})"
 
 
 def fee_status_for_student(student, term, year):

@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% block title %}{% if read_only %}All Payments{% else %}Bursar Dashboard{% endif %}{% endblock %}
 {% block content %}
+{% load fees_format %}
 
 <div class="card p-4 mb-4" style="background: linear-gradient(135deg, #123A5E, #0A2540); color: #FAF3E4; border-color: #0A2540;">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div>
             <p class="mb-1 opacity-75">💰 {{ vault_label }}</p>
-            <h1 class="mb-0" style="font-weight:700;">{{ vault_total }}</h1>
+            <h1 class="mb-0" style="font-weight:700;">{{ vault_total|ugx }}</h1>
         </div>
         <form method="get" class="row g-2 align-items-end">
             <input type="hidden" name="term" value="{{ term }}">
@@ -104,9 +105,9 @@
                     <td><a href="{% url 'fees:student_fee_detail' row.student.pk %}">{{ row.student.full_name }}</a></td>
                     <td>{{ row.student.school_class|default:"-" }}</td>
                     <td>{{ row.student.get_boarding_status_display }}</td>
-                    <td>{{ row.expected }}</td>
-                    <td>{{ row.paid }}</td>
-                    <td>{{ row.balance }}</td>
+                    <td>{{ row.expected|ugx }}</td>
+                    <td>{{ row.paid|ugx }}</td>
+                    <td>{{ row.balance|ugx }}</td>
                     <td>
                         {% if row.is_defaulter %}
                             <span class="badge badge-defaulter">Defaulter</span>

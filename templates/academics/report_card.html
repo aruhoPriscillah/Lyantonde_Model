@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load fees_format %}
 {% block title %}Report Card - {{ student.full_name }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -45,9 +46,9 @@
     {% if fee_status %}
     <h5 class="mt-4">Fees &mdash; {{ term }} {{ year }}</h5>
     <p>
-        Expected: {{ fee_status.expected }} &nbsp;|&nbsp;
-        Paid: {{ fee_status.paid }} &nbsp;|&nbsp;
-        Balance: {{ fee_status.balance }} &nbsp;|&nbsp;
+        Expected: {{ fee_status.expected|ugx }} &nbsp;|&nbsp;
+        Paid: {{ fee_status.paid|ugx }} &nbsp;|&nbsp;
+        Balance: {{ fee_status.balance|ugx }} &nbsp;|&nbsp;
         {% if fee_status.is_defaulter %}
             <span class="badge badge-defaulter">Defaulter</span>
         {% else %}
