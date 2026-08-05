@@ -50,3 +50,9 @@ class SchoolClassForm(forms.ModelForm):
             "name": forms.TextInput(attrs={"class": "form-control"}),
             "class_teacher": forms.Select(attrs={"class": "form-select"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["class_teacher"].queryset = self.fields["class_teacher"].queryset.filter(
+            role="TEACHER", is_active=True
+        ).order_by("first_name", "last_name", "username")

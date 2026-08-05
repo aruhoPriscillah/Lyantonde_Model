@@ -4,6 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 
 from accounts.decorators import role_required
 from accounts.models import User
+from accounts.forms import StaffCreationForm
 from reportsapp.utils import export_excel, export_pdf
 from .forms import StudentForm, SchoolClassForm
 from .models import Student, SchoolClass
@@ -61,6 +62,22 @@ def manage_classes(request):
         form = SchoolClassForm()
     classes = SchoolClass.objects.select_related("class_teacher").all()
     return render(request, "students/manage_classes.html", {"form": form, "classes": classes})
+
+
+@role_required(User.Role.HEADTEACHER)
+def manage_staff(request):
+    if request.method == "POST":
+        form = StaffCreationForm(request.POST)
+        if form.is_valid():
+            staff_member = form.save()
+            messages.success(request, f"Teacher {staff_member.get_full_name() or staff_member.username} added.")
+            return redirect("students:manage_staff")
+    else:
+        form = StaffCreationForm()
+    staff = User.objects.filter(role=User.Role.TEACHER).prefetch_related("classes_managed").order_by(
+        "first_name", "last_name", "username"
+    )
+    return render(request, "students/manage_staff.html", {"form": form, "staff": staff})
 
 
 @role_required(User.Role.HEADTEACHER)

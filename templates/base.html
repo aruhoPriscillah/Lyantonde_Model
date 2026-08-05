@@ -56,6 +56,11 @@
         .badge-defaulter { background-color: #A6402F; }
         .badge-cleared { background-color: #3E6B4F; }
         .student-photo-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; border: 1px solid var(--cream-border); }
+        img { max-width: 100%; }
+        .report-brand-header { display: grid; grid-template-columns: 130px minmax(0, 1fr) 100px; align-items: start; gap: 1rem; }
+        .report-school-badge { width: 130px; height: 125px; object-fit: contain; }
+        .report-pupil-photo { width: 100px; height: 115px; object-fit: cover; border: 1px solid #999; }
+        .report-photo-placeholder { display: flex; align-items: center; justify-content: center; width: 100px; height: 115px; border: 1px solid #999; text-align: center; color: #6c757d; font-size: 0.75rem; }
 
         .nav-pills-custom .nav-link { color: var(--navy); }
         .nav-pills-custom .nav-link.active { background-color: var(--navy-dark); color: var(--cream); }
@@ -110,6 +115,34 @@
         .alert-danger { background-color: #F5E6E2; border-color: #A6402F; color: #6B2A1D; }
         .alert-warning { background-color: #FBF0D9; border-color: #C9A24B; color: #6B4E17; }
         .alert-info { background-color: #E4EEF5; border-color: var(--navy-light); color: var(--navy-dark); }
+
+        @media (max-width: 767.98px) {
+            body::before { width: 75vw; }
+            .container { max-width: 100%; padding-left: 0.75rem; padding-right: 0.75rem; }
+            .navbar .container-fluid { align-items: flex-start; gap: 0.65rem; }
+            .navbar-brand { max-width: 100%; white-space: normal; font-size: 0.95rem; }
+            .navbar-brand img { height: 42px; }
+            .navbar .d-flex { width: 100%; flex-wrap: wrap; gap: 0.4rem; }
+            .navbar .d-flex .me-3 { margin-right: 0 !important; overflow-wrap: anywhere; }
+            .d-flex.justify-content-between { flex-wrap: wrap; gap: 0.75rem; }
+            .row.g-2 > .col-auto { width: 100%; }
+            .row.g-2 > .col-auto .form-control,
+            .row.g-2 > .col-auto .form-select,
+            .row.g-2 > .col-auto .btn { width: 100%; }
+            .card { max-width: 100% !important; }
+            .table-responsive { margin-bottom: 0.5rem; }
+            .report-brand-header { grid-template-columns: 88px minmax(0, 1fr) 72px; gap: 0.5rem; }
+            .report-school-badge { width: 88px; height: 90px; }
+            .report-pupil-photo, .report-photo-placeholder { width: 72px; height: 88px; }
+            .report-brand-header h3, .report-brand-header h4 { font-size: 1rem; }
+            .report-brand-header div { font-size: 0.72rem; overflow-wrap: anywhere; }
+        }
+
+        @media (max-width: 420px) {
+            .report-brand-header { grid-template-columns: 1fr 72px; }
+            .report-school-badge { grid-column: 1 / -1; justify-self: center; width: 110px; height: 105px; }
+            .report-brand-copy { text-align: left !important; }
+        }
     </style>
 </head>
 <body>
@@ -143,5 +176,15 @@
     {% block content %}{% endblock %}
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.querySelectorAll('table.table').forEach(function (table) {
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        var wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+});
+</script>
 </body>
 </html>

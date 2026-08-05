@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Manage Classes{% endblock %}
 {% block content %}
-<h3 class="mb-4">Manage Classes</h3>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0">Manage Classes</h3>
+    <a href="{% url 'students:manage_staff' %}" class="btn btn-outline-primary">Add Teacher</a>
+</div>
 <div class="row">
     <div class="col-md-5">
         <div class="card p-4">
@@ -20,6 +23,7 @@
                     <label class="form-label" for="{{ form.class_teacher.id_for_label }}">Class Teacher</label>
                     {{ form.class_teacher }}
                     {% for error in form.class_teacher.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    <div class="form-text">Only active teachers from the staff list are shown.</div>
                 </div>
                 <button type="submit" class="btn btn-primary">Save</button>
             </form>

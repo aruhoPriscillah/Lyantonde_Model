@@ -3,6 +3,20 @@
 {% block content %}
 <h3 class="mb-4">Add Results &mdash; {{ school_class }}</h3>
 
+<section class="border-top border-bottom py-3 mb-4">
+    <div class="d-flex justify-content-between align-items-center gap-3">
+        <div><h5 class="mb-1">Excel Results</h5><p class="text-muted mb-0">Download the class template, enter scores and remarks, then upload the completed workbook.</p></div>
+        <a href="{% url 'academics:download_results_template' %}?term={{ term }}&year={{ year }}" class="btn btn-outline-success">Download Template</a>
+    </div>
+    <form method="post" enctype="multipart/form-data" action="{% url 'academics:import_results_excel' %}" class="row g-2 align-items-end mt-2">
+        {% csrf_token %}
+        <input type="hidden" name="term" value="{{ term }}">
+        <input type="hidden" name="year" value="{{ year }}">
+        <div class="col-md-8"><label class="form-label" for="{{ upload_form.excel_file.id_for_label }}">Completed Excel file</label>{{ upload_form.excel_file }}</div>
+        <div class="col-md-4"><button type="submit" class="btn btn-primary w-100">Upload Results</button></div>
+    </form>
+</section>
+
 <form method="get" class="row g-2 mb-4">
     <div class="col-auto">{{ filter_form.subject }}</div>
     <div class="col-auto">{{ filter_form.term }}</div>

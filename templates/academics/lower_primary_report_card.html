@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load fees_format %}
+{% load static %}
 {% block title %}Lower Primary Report - {{ student.full_name }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -14,12 +15,10 @@
 </form>
 
 <section class="border p-4 mx-auto bg-white" style="max-width:800px;">
-    <header class="text-center mb-3">
-        <h3 class="mb-1">LYANTONDE MODEL PRIMARY SCHOOL</h3>
-        <div>P.O. BOX 93, LYANTONDE</div>
-        <div>0756001495 / 0752834565 / 0789228711</div>
-        <small><em>Motto: "We strive for quality education"</em></small>
-        <h5 class="mt-2">END OF TERM REPORT</h5>
+    <header class="report-brand-header mb-3">
+        <img class="report-school-badge" src="{% static 'img/school_badge.jpeg' %}" alt="School badge">
+        <div class="report-brand-copy text-center"><h3 class="mb-1">LYANTONDE MODEL PRIMARY SCHOOL</h3><div>P.O. BOX 93, LYANTONDE</div><div>0756001495 / 0790043144 / 0789228711</div><small><em>Motto: "We strive for quality education"</em></small><h5 class="mt-2">END OF TERM REPORT</h5></div>
+        {% if student.photo %}<img class="report-pupil-photo" src="{{ student.photo.url }}" alt="{{ student.full_name }}">{% else %}<div class="report-photo-placeholder">PUPIL PHOTO</div>{% endif %}
     </header>
 
     <div class="row g-2 mb-3">

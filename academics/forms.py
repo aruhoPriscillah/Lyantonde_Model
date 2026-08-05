@@ -54,3 +54,18 @@ class BulkResultFilterForm(forms.Form):
         subject_names = subject_names_for_class(teacher_class)
         if subject_names is not None:
             self.fields["subject"].queryset = Subject.objects.filter(name__in=subject_names).order_by("name")
+
+
+class ResultExcelUploadForm(forms.Form):
+    excel_file = forms.FileField(
+        label="Excel results file",
+        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".xlsx"}),
+    )
+
+    def clean_excel_file(self):
+        excel_file = self.cleaned_data["excel_file"]
+        if not excel_file.name.lower().endswith(".xlsx"):
+            raise forms.ValidationError("Upload an Excel .xlsx file.")
+        if excel_file.size > 2 * 1024 * 1024:
+            raise forms.ValidationError("The Excel file must not exceed 2 MB.")
+        return excel_file

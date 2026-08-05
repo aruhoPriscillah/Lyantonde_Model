@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load fees_format %}
+{% load static %}
 {% block title %}Report Card - {{ student.full_name }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -16,9 +17,11 @@
 </form>
 
 <div class="card p-4" style="max-width: 700px;">
-    {% if student.photo %}
-        <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;" class="mb-3">
-    {% endif %}
+    <div class="report-brand-header mb-3">
+        <img class="report-school-badge" src="{% static 'img/school_badge.jpeg' %}" alt="School badge">
+        <div class="report-brand-copy text-center"><h4>LYANTONDE MODEL PRIMARY SCHOOL</h4><strong>PUPIL REPORT CARD</strong></div>
+        {% if student.photo %}<img class="report-pupil-photo" src="{{ student.photo.url }}" alt="{{ student.full_name }}">{% else %}<div class="report-photo-placeholder">PUPIL PHOTO</div>{% endif %}
+    </div>
     <p><strong>Admission No.:</strong> {{ student.admission_number }}</p>
     <p><strong>Class:</strong> {{ student.school_class|default:"-" }}</p>
     <p><strong>Boarding Status:</strong> {{ student.get_boarding_status_display }}</p>

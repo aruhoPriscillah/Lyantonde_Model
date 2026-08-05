@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Manage Staff{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0">Staff Management</h3>
+    <a href="{% url 'students:manage_classes' %}" class="btn btn-outline-primary">Manage Classes</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card p-4">
+            <h5>Add Teacher</h5>
+            <form method="post">
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary">Add Teacher</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card p-3">
+            <h5>Teaching Staff</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead><tr><th>Name</th><th>Username</th><th>Phone</th><th>Assigned Class</th><th>Status</th></tr></thead>
+                    <tbody>
+                    {% for member in staff %}
+                        <tr>
+                            <td>{{ member.get_full_name|default:member.username }}</td>
+                            <td>{{ member.username }}</td>
+                            <td>{{ member.phone_number|default:"-" }}</td>
+                            <td>
+                                {% for class in member.classes_managed.all %}{{ class.name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">Unassigned</span>{% endfor %}
+                            </td>
+                            <td>{% if member.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted">No teachers have been added.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,9 +1,15 @@
-from django.test import SimpleTestCase, TestCase
+import io
 
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
+from openpyxl import Workbook, load_workbook
+
+from accounts.models import User
 from students.models import SchoolClass
 
 from .forms import BulkResultFilterForm, ResultForm
-from .models import Subject
+from .models import Result, Subject
 from .views import is_lower_primary_class, is_nursery_class, is_upper_primary_class, nursery_report_rows
 
 
@@ -106,3 +112,67 @@ class ClassSubjectDropdownTests(TestCase):
             "Numbers", "English", "Reading", "Health Habits", "Social Development", "Drawing", "Writing",
         ])
         self.assertTrue(all(row["score"] is None for row in rows))
+
+
+class ExcelResultImportTests(TestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username="excel-teacher", password="test-password", role=User.Role.TEACHER
+        )
+        self.school_class = SchoolClass.objects.create(name="P6", class_teacher=self.teacher)
+        self.student = self.school_class.students.create(
+            first_name="Excel",
+            last_name="Pupil",
+            gender="M",
+            date_of_birth="2015-01-01",
+            guardian_name="Parent",
+            guardian_phone="0700000000",
+        )
+        self.math = Subject.objects.get(name="Mathematics")
+        self.client.force_login(self.teacher)
+
+    def workbook_upload(self, rows):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(["Admission Number", "Pupil Name", "Subject", "Score", "Remarks", "Term", "Year"])
+        for row in rows:
+            sheet.append(row)
+        buffer = io.BytesIO()
+        workbook.save(buffer)
+        return SimpleUploadedFile(
+            "results.xlsx",
+            buffer.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    def test_download_template_contains_class_pupils_and_allowed_subjects(self):
+        response = self.client.get(reverse("academics:download_results_template"), {"term": "TERM1", "year": 2026})
+
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(io.BytesIO(response.content), read_only=True, data_only=True)
+        rows = list(workbook.active.iter_rows(min_row=2, values_only=True))
+        self.assertEqual({row[0] for row in rows}, {self.student.admission_number})
+        self.assertEqual({row[2] for row in rows}, {"Mathematics", "English", "SST", "Science"})
+
+    def test_imports_valid_excel_results(self):
+        upload = self.workbook_upload([[
+            self.student.admission_number, self.student.full_name, "Mathematics", 84, "Very Good", "TERM1", 2026,
+        ]])
+
+        response = self.client.post(reverse("academics:import_results_excel"), {"excel_file": upload})
+
+        self.assertEqual(response.status_code, 302)
+        result = Result.objects.get(student=self.student, subject=self.math, term="TERM1", year=2026)
+        self.assertEqual(result.score, 84)
+        self.assertEqual(result.remarks, "VERY_GOOD")
+
+    def test_invalid_row_prevents_partial_import(self):
+        upload = self.workbook_upload([
+            [self.student.admission_number, self.student.full_name, "Mathematics", 84, "Good", "TERM1", 2026],
+            [self.student.admission_number, self.student.full_name, "Luganda", 70, "Good", "TERM1", 2026],
+        ])
+
+        response = self.client.post(reverse("academics:import_results_excel"), {"excel_file": upload}, follow=True)
+
+        self.assertContains(response, "subject is not allowed")
+        self.assertFalse(Result.objects.filter(student=self.student).exists())

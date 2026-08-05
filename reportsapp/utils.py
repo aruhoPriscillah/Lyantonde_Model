@@ -6,7 +6,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.enums import TA_CENTER
 from functools import lru_cache
@@ -18,6 +18,52 @@ from reportlab.lib.utils import ImageReader
 from fees.utils import format_ugx
 
 SCHOOL_BADGE_PATH = settings.BASE_DIR / "static" / "img" / "school_badge.jpeg"
+
+
+def _report_image(path, width=2.2 * cm, height=2.2 * cm, placeholder="PHOTO"):
+    if path:
+        try:
+            if path.exists():
+                return Image(str(path), width=width, height=height, kind="proportional")
+        except (OSError, ValueError):
+            pass
+    box = Table([[placeholder]], colWidths=[width], rowHeights=[height])
+    box.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.grey),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("TEXTCOLOR", (0, 0), (-1, -1), colors.grey),
+    ]))
+    return box
+
+
+def _student_photo_path(student):
+    if not getattr(student, "photo", None):
+        return None
+    try:
+        return settings.MEDIA_ROOT / student.photo.name
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _report_header(student, heading, centered_style):
+    school_heading = [
+        Paragraph("<b>LYANTONDE MODEL PRIMARY SCHOOL</b>", getSampleStyleSheet()["Title"]),
+        Paragraph("P.O. BOX 93, LYANTONDE", centered_style),
+        Paragraph("0756001495 / 0790043144 / 0789228711", centered_style),
+        Paragraph('<i>Motto: "We strive for quality education"</i>', centered_style),
+        Paragraph(f"<b>{heading}</b>", centered_style),
+    ]
+    return Table(
+        [[
+            _report_image(SCHOOL_BADGE_PATH, width=3.1 * cm, height=3.1 * cm, placeholder="BADGE"),
+            school_heading,
+            _report_image(_student_photo_path(student), width=2.6 * cm, height=2.8 * cm, placeholder="PUPIL PHOTO"),
+        ]],
+        colWidths=[3.3 * cm, 11.1 * cm, 2.6 * cm],
+        style=TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]),
+    )
 
 
 @lru_cache(maxsize=1)
@@ -172,9 +218,12 @@ def export_report_card_pdf(filename, student, term_label, year, subject_rows, to
         leftMargin=2 * cm, rightMargin=2 * cm, topMargin=1.5 * cm, bottomMargin=1.5 * cm,
     )
     styles = getSampleStyleSheet()
+    centered = styles["Normal"].clone("StandardReportCentered")
+    centered.alignment = TA_CENTER
+    centered.fontSize = 9
+    centered.leading = 12
     elements = [
-        Paragraph("Lyantonde Model Primary School", styles["Title"]),
-        Paragraph(f"Pupil Report Card &mdash; {term_label} {year}", styles["Heading2"]),
+        _report_header(student, f"PUPIL REPORT CARD - {term_label} {year}", centered),
         Spacer(1, 12),
     ]
 
@@ -266,22 +315,7 @@ def export_nursery_report_card_pdf(
     centered.leading = 12
 
     elements = []
-    logo = str(SCHOOL_BADGE_PATH) if SCHOOL_BADGE_PATH.exists() else None
-    heading = [
-        Paragraph("<b>LYANTONDE MODEL PRIMARY SCHOOL</b>", styles["Title"]),
-        Paragraph("P.O. BOX 93, LYANTONDE", centered),
-        Paragraph("0756001495 / 0752834565 / 0789228711", centered),
-        Paragraph('<i>Motto: "We strive for quality education"</i>', centered),
-        Paragraph("<b>END OF TERM REPORT</b>", centered),
-    ]
-    if logo:
-        from reportlab.platypus import Image
-
-        header = Table([[Image(logo, width=2 * cm, height=2 * cm), heading]], colWidths=[2.5 * cm, 14.5 * cm])
-        header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
-        elements.append(header)
-    else:
-        elements.extend(heading)
+    elements.append(_report_header(student, "END OF TERM REPORT", centered))
     elements.append(Spacer(1, 8))
 
     pupil_data = [
@@ -364,25 +398,7 @@ def export_progressive_report_card_pdf(
     centered.fontSize = 9
     centered.leading = 12
 
-    heading = [
-        Paragraph("<b>LYANTONDE MODEL PRIMARY SCHOOL</b>", styles["Title"]),
-        Paragraph("P.O. BOX 93, LYANTONDE", centered),
-        Paragraph("0756001495 / 0765782480 / 0789228711", centered),
-        Paragraph('<i>Motto: "We strive for quality education"</i>', centered),
-        Paragraph("<b><u>PROGRESSIVE REPORT</u></b>", centered),
-    ]
-    elements = []
-    if SCHOOL_BADGE_PATH.exists():
-        from reportlab.platypus import Image
-
-        header = Table(
-            [[Image(str(SCHOOL_BADGE_PATH), width=2.2 * cm, height=2.2 * cm), heading]],
-            colWidths=[2.7 * cm, 14.2 * cm],
-        )
-        header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
-        elements.append(header)
-    else:
-        elements.extend(heading)
+    elements = [_report_header(student, "<u>PROGRESSIVE REPORT</u>", centered)]
     elements.append(Spacer(1, 8))
 
     details = Table([

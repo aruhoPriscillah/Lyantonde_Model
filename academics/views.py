@@ -1,6 +1,10 @@
 import datetime
+import io
 import re
+from decimal import Decimal, InvalidOperation
 from django.contrib import messages
+from django.db import transaction
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.exceptions import PermissionDenied
 
@@ -16,10 +20,13 @@ from reportsapp.utils import (
 from students.models import SchoolClass, Student
 from fees.forms import TermYearFilterForm
 from fees.models import fee_status_for_student, TERM_CHOICES
-from .forms import ResultForm, GradingScaleForm, BulkResultFilterForm, SubjectForm
-from .models import Result, Subject, GradingScale
+from .forms import ResultExcelUploadForm, ResultForm, GradingScaleForm, BulkResultFilterForm, SubjectForm
+from .models import Result, Subject, GradingScale, Remark
 from .subject_sets import is_lower_primary_class, is_nursery_class, is_upper_primary_class
 from .subject_sets import NURSERY_SUBJECT_NAMES
+from .subject_sets import subject_names_for_class
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, PatternFill
 
 CURRENT_YEAR = datetime.date.today().year
 DEFAULT_TERM = "TERM1"
@@ -218,7 +225,184 @@ def bulk_add_results(request):
         "subject": subject,
         "term": term,
         "year": year,
+        "upload_form": ResultExcelUploadForm(),
     })
+
+
+@role_required(User.Role.TEACHER)
+def download_results_template(request):
+    school_class = _get_teacher_class(request.user)
+    if not school_class:
+        messages.error(request, "You are not currently assigned to a class.")
+        return redirect("academics:teacher_dashboard")
+
+    term = request.GET.get("term", DEFAULT_TERM)
+    if term not in dict(TERM_CHOICES):
+        term = DEFAULT_TERM
+    try:
+        year = int(request.GET.get("year", CURRENT_YEAR))
+    except (TypeError, ValueError):
+        year = CURRENT_YEAR
+
+    allowed_names = subject_names_for_class(school_class)
+    subjects = Subject.objects.filter(name__in=allowed_names).order_by("name") if allowed_names else Subject.objects.all().order_by("name")
+    students = school_class.students.filter(is_active=True).order_by("admission_number")
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Results"
+    headers = ["Admission Number", "Pupil Name", "Subject", "Score", "Remarks", "Term", "Year"]
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="1F4E78")
+    for student in students:
+        for subject in subjects:
+            sheet.append([student.admission_number, student.full_name, subject.name, "", "", term, year])
+    widths = [20, 28, 28, 12, 18, 12, 12]
+    for index, width in enumerate(widths, start=1):
+        sheet.column_dimensions[chr(64 + index)].width = width
+    sheet.freeze_panes = "A2"
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    filename = f"results_template_{school_class.name.replace(' ', '_')}_{term}_{year}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _normalize_term(value):
+    normalized = str(value or "").strip().upper().replace(" ", "")
+    aliases = {"1": "TERM1", "2": "TERM2", "3": "TERM3"}
+    return aliases.get(normalized, normalized)
+
+
+@role_required(User.Role.TEACHER)
+def import_results_excel(request):
+    if request.method != "POST":
+        return redirect("academics:bulk_add_results")
+    school_class = _get_teacher_class(request.user)
+    if not school_class:
+        messages.error(request, "You are not currently assigned to a class.")
+        return redirect("academics:teacher_dashboard")
+
+    form = ResultExcelUploadForm(request.POST, request.FILES)
+    if not form.is_valid():
+        messages.error(request, " ".join(error for errors in form.errors.values() for error in errors))
+        return redirect("academics:bulk_add_results")
+
+    try:
+        workbook = load_workbook(form.cleaned_data["excel_file"], read_only=True, data_only=True)
+        sheet = workbook.active
+    except Exception:
+        messages.error(request, "The uploaded workbook could not be read. Upload a valid .xlsx file.")
+        return redirect("academics:bulk_add_results")
+
+    try:
+        first_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True))
+    except StopIteration:
+        messages.error(request, "The uploaded workbook is empty.")
+        return redirect("academics:bulk_add_results")
+    header_values = [str(value or "").strip().lower() for value in first_row]
+    aliases = {
+        "admission": {"admission number", "admission no", "admission no.", "admission_number"},
+        "subject": {"subject"},
+        "score": {"score", "marks", "mark"},
+        "remarks": {"remarks", "remark"},
+        "term": {"term"},
+        "year": {"year"},
+    }
+    columns = {
+        key: next((index for index, header in enumerate(header_values) if header in names), None)
+        for key, names in aliases.items()
+    }
+    missing = [name for name in ("admission", "subject", "score") if columns[name] is None]
+    if missing:
+        messages.error(request, "Missing required Excel columns: " + ", ".join(missing) + ".")
+        return redirect("academics:bulk_add_results")
+
+    students = {student.admission_number.upper(): student for student in school_class.students.filter(is_active=True)}
+    allowed_names = subject_names_for_class(school_class)
+    subject_qs = Subject.objects.filter(name__in=allowed_names) if allowed_names else Subject.objects.all()
+    subjects = {subject.name.lower(): subject for subject in subject_qs}
+    remark_values = {value: value for value, _ in Remark.choices}
+    remark_values.update({label.lower(): value for value, label in Remark.choices})
+    valid_terms = dict(TERM_CHOICES)
+    default_term = _normalize_term(request.POST.get("term", DEFAULT_TERM))
+    try:
+        default_year = int(request.POST.get("year", CURRENT_YEAR))
+    except (TypeError, ValueError):
+        default_year = CURRENT_YEAR
+
+    parsed_rows = []
+    errors = []
+    for row_number, values in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+        score_raw = values[columns["score"]] if columns["score"] < len(values) else None
+        if score_raw is None or str(score_raw).strip() == "":
+            continue
+        admission = str(values[columns["admission"]] or "").strip().upper()
+        subject_name = str(values[columns["subject"]] or "").strip().lower()
+        student = students.get(admission)
+        subject = subjects.get(subject_name)
+        if not student:
+            errors.append(f"Row {row_number}: pupil {admission or '-'} is not active in {school_class}.")
+        if not subject:
+            errors.append(f"Row {row_number}: subject is not allowed for {school_class}.")
+        try:
+            score = Decimal(str(score_raw))
+            if score < 0 or score > 100:
+                raise ValueError
+        except (InvalidOperation, TypeError, ValueError):
+            errors.append(f"Row {row_number}: score must be between 0 and 100.")
+            score = None
+
+        remark_raw = ""
+        if columns["remarks"] is not None and columns["remarks"] < len(values):
+            remark_raw = str(values[columns["remarks"]] or "").strip()
+        remark = remark_values.get(remark_raw, remark_values.get(remark_raw.lower())) if remark_raw else ""
+        if remark_raw and not remark:
+            errors.append(f"Row {row_number}: invalid remark '{remark_raw}'.")
+
+        term_value = values[columns["term"]] if columns["term"] is not None and columns["term"] < len(values) else default_term
+        term = _normalize_term(term_value or default_term)
+        if term not in valid_terms:
+            errors.append(f"Row {row_number}: invalid term '{term_value}'.")
+        year_value = values[columns["year"]] if columns["year"] is not None and columns["year"] < len(values) else default_year
+        try:
+            year = int(year_value or default_year)
+            if year < 2000 or year > 2100:
+                raise ValueError
+        except (TypeError, ValueError):
+            errors.append(f"Row {row_number}: invalid year '{year_value}'.")
+            year = None
+        if student and subject and score is not None and term in valid_terms and year is not None and (not remark_raw or remark):
+            parsed_rows.append((student, subject, score, remark, term, year))
+
+    if errors:
+        message = " ".join(errors[:10])
+        if len(errors) > 10:
+            message += f" Plus {len(errors) - 10} more error(s)."
+        messages.error(request, message)
+        return redirect("academics:bulk_add_results")
+    if not parsed_rows:
+        messages.warning(request, "No scores were found in the uploaded workbook.")
+        return redirect("academics:bulk_add_results")
+
+    with transaction.atomic():
+        for student, subject, score, remark, term, year in parsed_rows:
+            Result.objects.update_or_create(
+                student=student,
+                subject=subject,
+                term=term,
+                year=year,
+                defaults={"score": score, "remarks": remark, "recorded_by": request.user},
+            )
+    messages.success(request, f"Imported {len(parsed_rows)} result(s) from Excel.")
+    return redirect(f"/teacher/academics/results/?term={default_term}&year={default_year}")
 
 @role_required(User.Role.TEACHER)
 def class_results(request):
