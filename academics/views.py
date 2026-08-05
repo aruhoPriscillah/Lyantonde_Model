@@ -1,4 +1,5 @@
 import datetime
+import re
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.exceptions import PermissionDenied
@@ -9,6 +10,7 @@ from reportsapp.utils import (
     export_excel,
     export_nursery_report_card_pdf,
     export_pdf,
+    export_progressive_report_card_pdf,
     export_report_card_pdf,
 )
 from students.models import SchoolClass, Student
@@ -16,20 +18,27 @@ from fees.forms import TermYearFilterForm
 from fees.models import fee_status_for_student, TERM_CHOICES
 from .forms import ResultForm, GradingScaleForm, BulkResultFilterForm, SubjectForm
 from .models import Result, Subject, GradingScale
+from .subject_sets import is_lower_primary_class, is_nursery_class, is_upper_primary_class
+from .subject_sets import NURSERY_SUBJECT_NAMES
 
 CURRENT_YEAR = datetime.date.today().year
 DEFAULT_TERM = "TERM1"
 
-NURSERY_CLASS_NAMES = {"baby", "nursery", "middle", "top"}
+LOWER_PRIMARY_SUBJECTS = (
+    ("Mathematics", {"mathematics", "math", "maths"}),
+    ("English", {"english"}),
+    ("Literacy I", {"literacy i", "literacy 1"}),
+    ("Literacy II (Reading)", {"literacy ii", "literacy 2", "literacy ii (reading)", "reading"}),
+    ("Religious Education", {"religious education", "re", "r.e"}),
+    ("Luganda", {"luganda"}),
+)
+UPPER_PRIMARY_SUBJECTS = (
+    ("MATH", {"mathematics", "math", "maths"}),
+    ("ENG", {"english"}),
+    ("SST", {"sst", "social studies"}),
+    ("SCIE", {"science", "integrated science"}),
+)
 
-
-def is_nursery_class(school_class):
-    if not school_class:
-        return False
-    normalized = " ".join(school_class.name.lower().replace("-", " ").split())
-    if normalized.endswith(" class"):
-        normalized = normalized[:-6].strip()
-    return normalized in NURSERY_CLASS_NAMES
 
 @role_required(User.Role.HEADTEACHER)
 def manage_subjects(request):
@@ -163,7 +172,7 @@ def bulk_add_results(request):
 
     students = list(school_class.students.filter(is_active=True))
     data = request.POST if request.method == "POST" else (request.GET or {"term": DEFAULT_TERM, "year": CURRENT_YEAR})
-    filter_form = BulkResultFilterForm(data)
+    filter_form = BulkResultFilterForm(data, teacher_class=school_class)
 
     subject = None
     term, year = DEFAULT_TERM, CURRENT_YEAR
@@ -357,17 +366,80 @@ def nursery_report_rows(student, term, year):
     results = (
         Result.objects.select_related("subject", "recorded_by")
         .filter(student=student, term=term, year=year)
-        .order_by("subject__name")
     )
-    return [
-        {
-            "subject": result.subject.name,
-            "score": result.score,
-            "remarks": result.remarks or result.grade(),
-            "initials": result.recorded_by.get_full_name()[:1] if result.recorded_by else "",
-        }
-        for result in results
-    ]
+    lookup = {result.subject.name.lower().strip(): result for result in results}
+    rows = []
+    for subject_name in NURSERY_SUBJECT_NAMES:
+        result = lookup.get(subject_name.lower())
+        rows.append({
+            "subject": subject_name,
+            "score": result.score if result else None,
+            "remarks": result.get_remarks_display() if result and result.remarks else "",
+            "initials": (
+                (result.recorded_by.get_full_name() or result.recorded_by.username)[:1].upper()
+                if result and result.recorded_by else ""
+            ),
+        })
+    return rows
+
+
+def lower_primary_report_rows(student, term, year):
+    results = Result.objects.select_related("subject", "recorded_by").filter(
+        student=student, term=term, year=year
+    )
+    lookup = {result.subject.name.lower().strip(): result for result in results}
+    rows = []
+    for label, aliases in LOWER_PRIMARY_SUBJECTS:
+        result = next((lookup[alias] for alias in aliases if alias in lookup), None)
+        rows.append({
+            "subject": label,
+            "score": result.score if result else None,
+            "remarks": result.get_remarks_display() if result and result.remarks else "",
+            "initials": (
+                (result.recorded_by.get_full_name() or result.recorded_by.username)[:1].upper()
+                if result and result.recorded_by else ""
+            ),
+        })
+    return rows
+
+
+def progressive_report_rows(student, term, year):
+    results = Result.objects.select_related("subject", "recorded_by").filter(
+        student=student, term=term, year=year
+    )
+    lookup = {result.subject.name.lower().strip(): result for result in results}
+    rows = []
+    for label, aliases in UPPER_PRIMARY_SUBJECTS:
+        result = next((lookup[alias] for alias in aliases if alias in lookup), None)
+        grade = result.grade() if result else ""
+        grade_match = re.search(r"(\d+)$", grade)
+        rows.append({
+            "subject": label,
+            "score": result.score if result else None,
+            "aggregate": int(grade_match.group(1)) if grade_match else None,
+            "remarks": result.get_remarks_display() if result and result.remarks else "",
+            "initials": (
+                (result.recorded_by.get_full_name() or result.recorded_by.username)[:1].upper()
+                if result and result.recorded_by else ""
+            ),
+        })
+    return rows
+
+
+def progressive_division(rows):
+    aggregates = [row["aggregate"] for row in rows if row["aggregate"] is not None]
+    if len(aggregates) != len(UPPER_PRIMARY_SUBJECTS):
+        return "-"
+    total = sum(aggregates)
+    if total <= 12:
+        return "Division 1"
+    if total <= 24:
+        return "Division 2"
+    if total <= 28:
+        return "Division 3"
+    if total <= 32:
+        return "Division 4"
+    return "Ungraded"
 
 
 def _can_view_student(user, student):
@@ -393,10 +465,24 @@ def report_card(request, pk):
     subject_rows, total, average, position, class_size = student_report_data(student, term, year)
     fee_status = fee_status_for_student(student, term, year) if student.school_class else None
     nursery_report = is_nursery_class(student.school_class)
+    nursery_rows = nursery_report_rows(student, term, year) if nursery_report else []
+    nursery_scores = [row["score"] for row in nursery_rows if row["score"] is not None]
+    lower_primary_report = is_lower_primary_class(student.school_class)
+    upper_primary_report = is_upper_primary_class(student.school_class)
+    progressive_rows = progressive_report_rows(student, term, year) if upper_primary_report else []
+    progressive_scores = [row["score"] for row in progressive_rows if row["score"] is not None]
+    if nursery_report:
+        template_name = "academics/nursery_report_card.html"
+    elif lower_primary_report:
+        template_name = "academics/lower_primary_report_card.html"
+    elif upper_primary_report:
+        template_name = "academics/progressive_report_card.html"
+    else:
+        template_name = "academics/report_card.html"
 
     return render(
         request,
-        "academics/nursery_report_card.html" if nursery_report else "academics/report_card.html",
+        template_name,
         {
             "student": student,
             "term": term,
@@ -408,7 +494,15 @@ def report_card(request, pk):
             "position": position,
             "class_size": class_size,
             "fee_status": fee_status,
-            "nursery_rows": nursery_report_rows(student, term, year) if nursery_report else [],
+            "nursery_rows": nursery_rows,
+            "nursery_total": sum(nursery_scores),
+            "lower_primary_rows": lower_primary_report_rows(student, term, year) if lower_primary_report else [],
+            "progressive_rows": progressive_rows,
+            "division": progressive_division(progressive_rows) if upper_primary_report else "-",
+            "progressive_total": sum(progressive_scores),
+            "progressive_average": (
+                sum(progressive_scores) / len(progressive_scores) if progressive_scores else None
+            ),
         },
     )
 
@@ -437,6 +531,22 @@ def export_report_card(request, pk):
             position,
             class_size,
             fee_status,
+        )
+    if is_lower_primary_class(student.school_class):
+        return export_nursery_report_card_pdf(
+            fname,
+            student,
+            term_label,
+            year,
+            lower_primary_report_rows(student, term, year),
+            position,
+            class_size,
+            fee_status,
+        )
+    if is_upper_primary_class(student.school_class):
+        rows = progressive_report_rows(student, term, year)
+        return export_progressive_report_card_pdf(
+            fname, student, term_label, year, rows, progressive_division(rows), fee_status
         )
     return export_report_card_pdf(
         fname, student, term_label, year, subject_rows, total, average, position, class_size, fee_status

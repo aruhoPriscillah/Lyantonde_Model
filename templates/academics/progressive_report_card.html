@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load fees_format %}
+{% block title %}Progressive Report - {{ student.full_name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Progressive Report</h3>
+    <a href="{% url 'academics:export_report_card' student.pk %}?term={{ term }}&year={{ year }}" class="btn btn-outline-danger btn-sm">Export / Print PDF</a>
+</div>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">{{ filter_form.term }}</div>
+    <div class="col-auto">{{ filter_form.year }}</div>
+    <div class="col-auto"><button class="btn btn-secondary" type="submit">Filter</button></div>
+</form>
+
+<section class="border p-4 mx-auto bg-white" style="max-width:1100px;">
+    <header class="text-center mb-3">
+        <h3 class="mb-1">LYANTONDE MODEL PRIMARY SCHOOL</h3>
+        <div>P.O. BOX 93, LYANTONDE</div>
+        <div>0756001495 / 0765782480 / 0789228711</div>
+        <small><em>Motto: "We strive for quality education"</em></small>
+        <h5 class="mt-2"><u>PROGRESSIVE REPORT</u></h5>
+    </header>
+    <div class="row g-2 mb-3">
+        <div class="col-md-8"><strong>Pupil's name:</strong> {{ student.full_name }}</div>
+        <div class="col-md-4"><strong>Sex:</strong> {{ student.get_gender_display }}</div>
+        <div class="col-md-4"><strong>Class:</strong> {{ student.school_class }}</div>
+        <div class="col-md-4"><strong>Term:</strong> {{ term }}</div>
+        <div class="col-md-4"><strong>Year:</strong> {{ year }}</div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-bordered table-sm align-middle text-center" style="font-size:0.75rem;">
+            <thead><tr><th>Subject</th><th>Set 1</th><th>Set 2</th><th>Set 3</th><th>Set 4</th><th>Mid</th><th>Set 6</th><th>Set 7</th><th>Set 8</th><th>Set 9</th><th>End</th><th>Total</th><th>Ave</th><th>Agg</th><th>Rmks</th><th>Initi</th></tr></thead>
+            <tbody>
+            {% for row in progressive_rows %}
+                <tr><th class="text-start">{{ row.subject }}</th><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                    <td>{% if row.score != None %}{{ row.score|floatformat:0 }}{% endif %}</td>
+                    <td>{% if row.score != None %}{{ row.score|floatformat:0 }}{% endif %}</td>
+                    <td>{% if row.score != None %}{{ row.score|floatformat:0 }}{% endif %}</td>
+                    <td>{{ row.aggregate|default:"" }}</td><td>{{ row.remarks }}</td><td>{{ row.initials }}</td></tr>
+            {% endfor %}
+            <tr class="fw-bold"><td class="text-start">TOTAL</td><td colspan="10"></td><td>{{ progressive_total|floatformat:0 }}</td><td>{{ progressive_average|floatformat:1|default:"" }}</td><td colspan="3"></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p class="mt-4"><strong><u>DIVISION</u>:</strong> {{ division }}</p>
+    <p class="mt-4">Class teacher's comment: ________________________________________________</p>
+    <p>Head teacher's report: __________________________________________________</p>
+    <h6 class="mt-4"><u>REQUIREMENTS</u></h6>
+    <p>A ream of paper, 4 toilet papers, 2 brooms, a bucket of detergent, enough books, enough pens, mathematical set and atlas.</p>
+    {% if fee_status %}<p>School fees balance: <strong>{{ fee_status.balance|ugx }}</strong></p>{% endif %}
+    <p class="mt-4">I have seen and read the report, sign __________________ Parent/guardian</p>
+    <p>Date __________________</p>
+</section>
+{% endblock %}

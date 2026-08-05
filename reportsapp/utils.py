@@ -302,12 +302,18 @@ def export_nursery_report_card_pdf(
 
     result_data = [["SUBJECT", "MARKS (%)", "REMARKS", "INITIALS"]]
     result_data.extend([
-        [row["subject"], f'{row["score"]:.0f}', row["remarks"], row["initials"]]
+        [
+            row["subject"],
+            f'{row["score"]:.0f}' if row["score"] is not None else "-",
+            row["remarks"] or "-",
+            row["initials"] or "-",
+        ]
         for row in nursery_rows
     ])
     if not nursery_rows:
         result_data.append(["No results recorded", "-", "-", "-"])
-    result_data.append(["TOTAL", f'{sum(row["score"] for row in nursery_rows):.0f}', "", ""])
+    total_score = sum(row["score"] for row in nursery_rows if row["score"] is not None)
+    result_data.append(["TOTAL", f"{total_score:.0f}", "", ""])
     results_table = Table(result_data, colWidths=[6 * cm, 3 * cm, 5.5 * cm, 2.5 * cm], repeatRows=1)
     results_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E7ECE8")),
@@ -335,6 +341,120 @@ def export_nursery_report_card_pdf(
         ))
     elements.append(Spacer(1, 18))
     elements.append(Paragraph("I have seen and read the report. Parent/Guardian: __________________________", styles["Normal"]))
+
+    doc.build(elements, onFirstPage=_draw_watermark, onLaterPages=_draw_watermark)
+    buffer.seek(0)
+    response = HttpResponse(buffer.read(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
+    return response
+
+
+def export_progressive_report_card_pdf(
+    filename, student, term_label, year, rows, division, fee_status=None
+):
+    """Build the P4-P7 progressive report using the school's paper layout."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4, leftMargin=1.1 * cm, rightMargin=1.1 * cm,
+        topMargin=1.1 * cm, bottomMargin=1.1 * cm,
+    )
+    styles = getSampleStyleSheet()
+    centered = styles["Normal"].clone("ProgressiveCentered")
+    centered.alignment = TA_CENTER
+    centered.fontSize = 9
+    centered.leading = 12
+
+    heading = [
+        Paragraph("<b>LYANTONDE MODEL PRIMARY SCHOOL</b>", styles["Title"]),
+        Paragraph("P.O. BOX 93, LYANTONDE", centered),
+        Paragraph("0756001495 / 0765782480 / 0789228711", centered),
+        Paragraph('<i>Motto: "We strive for quality education"</i>', centered),
+        Paragraph("<b><u>PROGRESSIVE REPORT</u></b>", centered),
+    ]
+    elements = []
+    if SCHOOL_BADGE_PATH.exists():
+        from reportlab.platypus import Image
+
+        header = Table(
+            [[Image(str(SCHOOL_BADGE_PATH), width=2.2 * cm, height=2.2 * cm), heading]],
+            colWidths=[2.7 * cm, 14.2 * cm],
+        )
+        header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+        elements.append(header)
+    else:
+        elements.extend(heading)
+    elements.append(Spacer(1, 8))
+
+    details = Table([
+        ["PUPIL'S NAME", student.full_name, "SEX", student.get_gender_display()],
+        ["CLASS", str(student.school_class), "TERM", term_label, "YEAR", str(year)],
+    ], colWidths=[2.6 * cm, 7.2 * cm, 1.5 * cm, 2.2 * cm, 1.4 * cm, 2 * cm])
+    details.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+        ("FONTNAME", (4, 1), (4, 1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("LINEBELOW", (1, 0), (1, -1), 0.35, colors.grey),
+        ("LINEBELOW", (3, 0), (3, -1), 0.35, colors.grey),
+        ("LINEBELOW", (5, 1), (5, 1), 0.35, colors.grey),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    elements.extend([details, Spacer(1, 7)])
+
+    headers = ["SUBJECT", "SET\n1", "SET\n2", "SET\n3", "SET\n4", "MID", "SET\n6", "SET\n7", "SET\n8", "SET\n9", "END", "TOTAL", "AVE", "AGG", "RMKS", "INITI"]
+    table_data = [headers]
+    for row in rows:
+        score = f'{row["score"]:.0f}' if row["score"] is not None else ""
+        table_data.append([
+            row["subject"], "", "", "", "", "", "", "", "", "", score,
+            score, score, row["aggregate"] or "", row["remarks"], row["initials"],
+        ])
+    entered_scores = [row["score"] for row in rows if row["score"] is not None]
+    total_score = sum(entered_scores)
+    average = total_score / len(entered_scores) if entered_scores else None
+    aggregate = sum(row["aggregate"] for row in rows if row["aggregate"] is not None)
+    table_data.append([
+        "TOTAL", "", "", "", "", "", "", "", "", "", "",
+        f"{total_score:.0f}" if entered_scores else "",
+        f"{average:.1f}" if average is not None else "",
+        aggregate or "", "", "",
+    ])
+    widths = [1.55 * cm] + [0.72 * cm] * 10 + [0.85 * cm, 0.8 * cm, 0.8 * cm, 1.35 * cm, 0.8 * cm]
+    marks_table = Table(table_data, colWidths=widths, repeatRows=1)
+    marks_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E7ECE8")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, -1), (0, -1), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+        ("FONTSIZE", (0, 0), (-1, -1), 6),
+        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    elements.extend([marks_table, Spacer(1, 16)])
+    elements.append(Paragraph(f"<b><u>DIVISION</u>:</b> {division}", styles["Normal"]))
+    elements.append(Spacer(1, 16))
+    elements.append(Paragraph("Class teacher's comment: _________________________________________________", styles["Normal"]))
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph("Head teacher's report: ___________________________________________________", styles["Normal"]))
+    elements.append(Spacer(1, 22))
+    elements.append(Paragraph("<b><u>REQUIREMENTS</u></b>", styles["Normal"]))
+    elements.append(Spacer(1, 7))
+    elements.append(Paragraph(
+        "A ream of paper, 4 toilet papers, 2 brooms, a bucket of detergent, enough books, "
+        "enough pens, mathematical set and atlas.", styles["Normal"]
+    ))
+    elements.append(Spacer(1, 12))
+    if fee_status is not None:
+        elements.append(Paragraph(
+            f"Next term begins on ____________________ &nbsp;&nbsp; School fees balance: "
+            f"<b>{format_ugx(fee_status['balance'])}</b>", styles["Normal"]
+        ))
+    elements.append(Spacer(1, 16))
+    elements.append(Paragraph("I have seen and read the report, sign __________________ Parent/guardian", styles["Normal"]))
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph("Date __________________", styles["Normal"]))
 
     doc.build(elements, onFirstPage=_draw_watermark, onLaterPages=_draw_watermark)
     buffer.seek(0)

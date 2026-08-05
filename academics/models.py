@@ -59,7 +59,7 @@ class Result(models.Model):
     term = models.CharField(max_length=10, choices=TERM_CHOICES)
     year = models.PositiveIntegerField()
     score = models.DecimalField(max_digits=5, decimal_places=2)
-    remarks = models.CharField(max_length=255, blank=True)
+    remarks = models.CharField(max_length=20, choices=Remark.choices, blank=True)
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     date_recorded = models.DateTimeField(auto_now_add=True)
 

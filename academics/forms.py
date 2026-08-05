@@ -1,7 +1,6 @@
 from django import forms
-from .models import Result, Subject
-from .models import GradingScale
-from .models import Subject
+from .models import GradingScale, Result, Subject
+from .subject_sets import subject_names_for_class
 
 class ResultForm(forms.ModelForm):
     class Meta:
@@ -13,13 +12,16 @@ class ResultForm(forms.ModelForm):
             "term": forms.Select(attrs={"class": "form-select"}),
             "year": forms.NumberInput(attrs={"class": "form-control"}),
             "score": forms.NumberInput(attrs={"class": "form-control", "min": 0, "max": 100, "step": "0.01"}),
-           "remarks": forms.Select(attrs={"class": "form-select"}),
+            "remarks": forms.Select(attrs={"class": "form-select"}),
         }
 
     def __init__(self, *args, teacher_class=None, **kwargs):
         super().__init__(*args, **kwargs)
         if teacher_class is not None:
             self.fields["student"].queryset = teacher_class.students.filter(is_active=True)
+            subject_names = subject_names_for_class(teacher_class)
+            if subject_names is not None:
+                self.fields["subject"].queryset = Subject.objects.filter(name__in=subject_names).order_by("name")
 
 
 class SubjectForm(forms.ModelForm):
@@ -46,3 +48,9 @@ class BulkResultFilterForm(forms.Form):
     )
     term = forms.ChoiceField(choices=TERM_CHOICES, widget=forms.Select(attrs={"class": "form-select"}))
     year = forms.IntegerField(widget=forms.NumberInput(attrs={"class": "form-control"}))
+
+    def __init__(self, *args, teacher_class=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        subject_names = subject_names_for_class(teacher_class)
+        if subject_names is not None:
+            self.fields["subject"].queryset = Subject.objects.filter(name__in=subject_names).order_by("name")
