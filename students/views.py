@@ -3,6 +3,7 @@ import datetime
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 
@@ -28,10 +29,19 @@ def dashboard_redirect(request):
 
 @role_required(User.Role.HEADTEACHER)
 def headteacher_dashboard(request):
-    students = Student.objects.select_related("school_class").filter(is_active=True)
+    active_students = Student.objects.select_related("school_class").filter(is_active=True)
+    search_query = request.GET.get("q", "").strip()
+    students = active_students
+    for token in search_query.split():
+        students = students.filter(
+            Q(admission_number__icontains=token)
+            | Q(first_name__icontains=token)
+            | Q(last_name__icontains=token)
+        )
     context = {
         "students": students,
-        "total_students": students.count(),
+        "search_query": search_query,
+        "total_students": active_students.count(),
         "total_classes": SchoolClass.objects.count(),
     }
     return render(request, "students/headteacher_dashboard.html", context)

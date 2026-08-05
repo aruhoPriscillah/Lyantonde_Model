@@ -29,8 +29,17 @@
     </div>
 </div>
 
+<form method="get" class="row g-2 mb-3" role="search">
+    <div class="col-md-8 col-lg-6">
+        <label class="visually-hidden" for="student-search">Search students</label>
+        <input class="form-control" id="student-search" type="search" name="q" value="{{ search_query }}" placeholder="Search by pupil name or admission number">
+    </div>
+    <div class="col-auto"><button class="btn btn-secondary" type="submit">Search</button></div>
+    {% if search_query %}<div class="col-auto"><a class="btn btn-link" href="{% url 'students:headteacher_dashboard' %}">Clear</a></div>{% endif %}
+</form>
+
 <div class="card p-3">
-    <h5>All Registered Students</h5>
+    <h5>{% if search_query %}Search Results for "{{ search_query }}"{% else %}All Registered Students{% endif %}</h5>
     <div class="table-responsive">
         <table class="table table-hover align-middle">
             <thead>
@@ -74,7 +83,7 @@
                     <td><a href="{% url 'students:student_detail' s.pk %}" class="btn btn-sm btn-outline-primary">View</a></td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="10" class="text-center text-muted">No students registered yet.</td></tr>
+                <tr><td colspan="10" class="text-center text-muted">{% if search_query %}No students match "{{ search_query }}".{% else %}No students registered yet.{% endif %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

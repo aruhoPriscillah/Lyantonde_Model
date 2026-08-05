@@ -142,11 +142,12 @@ def export_excel(filename, title, headers, rows):
         cell = ws.cell(row=header_row_idx, column=col_idx, value=header)
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
+        cell.alignment = Alignment(horizontal="left", vertical="center")
 
     for row_offset, row in enumerate(rows, start=header_row_idx + 1):
         for col_idx, value in enumerate(row, start=1):
-            ws.cell(row=row_offset, column=col_idx, value=value)
+            cell = ws.cell(row=row_offset, column=col_idx, value=value)
+            cell.alignment = Alignment(horizontal="left", vertical="center")
 
     for col_idx, header in enumerate(headers, start=1):
         col_letter = get_column_letter(col_idx)

@@ -220,3 +220,39 @@ class RequirementsRegisterTests(TestCase):
         self.assertNotContains(day_response, self.boarding_student.full_name)
         self.assertContains(day_response, "4 toilet rolls")
         self.assertNotContains(day_response, "Mattress, blanket")
+
+class StudentSearchTests(TestCase):
+    def setUp(self):
+        headteacher = User.objects.create_user(
+            username="search-head", password="test-password", role=User.Role.HEADTEACHER
+        )
+        school_class = SchoolClass.objects.create(name="Search Class")
+        self.jane = school_class.students.create(
+            first_name="Jane", last_name="Nakato", gender="F", date_of_birth="2015-01-01",
+            guardian_name="Guardian", guardian_phone="0700000000",
+        )
+        self.john = school_class.students.create(
+            first_name="John", last_name="Kato", gender="M", date_of_birth="2015-02-01",
+            guardian_name="Guardian", guardian_phone="0700000001",
+        )
+        self.client.force_login(headteacher)
+
+    def test_searches_by_multi_part_name(self):
+        response = self.client.get(reverse("students:headteacher_dashboard"), {"q": "jane nak"})
+
+        self.assertContains(response, self.jane.full_name)
+        self.assertNotContains(response, self.john.full_name)
+        self.assertContains(response, 'value="jane nak"')
+
+    def test_searches_by_partial_admission_number(self):
+        response = self.client.get(
+            reverse("students:headteacher_dashboard"), {"q": self.john.admission_number[-3:]}
+        )
+
+        self.assertContains(response, self.john.full_name)
+        self.assertNotContains(response, self.jane.full_name)
+
+    def test_displays_no_matches_message(self):
+        response = self.client.get(reverse("students:headteacher_dashboard"), {"q": "not-a-pupil"})
+
+        self.assertContains(response, 'No students match "not-a-pupil".')
