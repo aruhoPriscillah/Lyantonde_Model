@@ -16,14 +16,38 @@ from reportsapp.utils import (
 from students.models import SchoolClass, Student
 from fees.forms import TermYearFilterForm
 from fees.models import fee_status_for_student, TERM_CHOICES
-from .forms import ResultForm, GradingScaleForm, BulkResultFilterForm, SubjectForm
-from .models import Result, Subject, GradingScale
+from .forms import AcademicTermForm, ResultForm, GradingScaleForm, BulkResultFilterForm, SubjectForm
+from .models import AcademicTerm, Result, Subject, GradingScale, term_is_closed
 from .subject_sets import is_lower_primary_class, is_nursery_class, is_upper_primary_class
 from .subject_sets import NURSERY_SUBJECT_NAMES
 from .subject_sets import subject_names_for_class
 
 CURRENT_YEAR = datetime.date.today().year
 DEFAULT_TERM = "TERM1"
+
+
+@role_required(User.Role.HEADTEACHER)
+def manage_terms(request):
+    if request.method == "POST":
+        form = AcademicTermForm(request.POST)
+        if form.is_valid():
+            values = form.cleaned_data
+            AcademicTerm.objects.update_or_create(
+                term=values["term"], year=values["year"],
+                defaults={
+                    "opens_on": values["opens_on"],
+                    "closes_on": values["closes_on"],
+                    "is_closed": values["is_closed"],
+                },
+            )
+            messages.success(request, "Academic term saved.")
+            return redirect("academics:manage_terms")
+    else:
+        form = AcademicTermForm(initial={"term": DEFAULT_TERM, "year": CURRENT_YEAR})
+    return render(request, "academics/manage_terms.html", {
+        "form": form,
+        "terms": AcademicTerm.objects.all(),
+    })
 
 LOWER_PRIMARY_SUBJECTS = (
     ("Mathematics", {"mathematics", "math", "maths"}),
@@ -156,10 +180,13 @@ def add_result(request):
             result = form.save(commit=False)
             if result.student.school_class_id != school_class.id:
                 raise PermissionDenied("You can only add results for students in your class.")
-            result.recorded_by = request.user
-            result.save()
-            messages.success(request, f"Result saved for {result.student.full_name}.")
-            return redirect(f"/teacher/academics/results/?term={result.term}&year={result.year}")
+            if term_is_closed(result.term, result.year):
+                form.add_error(None, "This term is closed. Results cannot be changed.")
+            else:
+                result.recorded_by = request.user
+                result.save()
+                messages.success(request, f"Result saved for {result.student.full_name}.")
+                return redirect(f"/teacher/academics/results/?term={result.term}&year={result.year}")
     else:
         form = ResultForm(teacher_class=school_class)
     return render(request, "academics/add_result.html", {"form": form, "school_class": school_class})
@@ -185,6 +212,8 @@ def bulk_add_results(request):
     if request.method == "POST":
         if not subject:
             messages.error(request, "Please choose a subject before saving.")
+        elif term_is_closed(term, year):
+            messages.error(request, "This term is closed. Results cannot be changed.")
         else:
             saved_count = 0
             for student in students:

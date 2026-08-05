@@ -197,6 +197,7 @@
         <a class="sidebar-link {% if request.resolver_match.view_name == 'students:manage_staff' %}active{% endif %}" href="{% url 'students:manage_staff' %}"><i data-lucide="users"></i><span>Staff</span></a>
         <a class="sidebar-link {% if request.resolver_match.view_name == 'students:requirements_register' %}active{% endif %}" href="{% url 'students:requirements_register' %}"><i data-lucide="clipboard-check"></i><span>Requirements</span></a>
         <div class="sidebar-section">Academics</div>
+        <a class="sidebar-link {% if request.resolver_match.view_name == 'academics:manage_terms' %}active{% endif %}" href="{% url 'academics:manage_terms' %}"><i data-lucide="calendar-range"></i><span>Academic Terms</span></a>
         <a class="sidebar-link {% if request.resolver_match.view_name == 'academics:all_results' %}active{% endif %}" href="{% url 'academics:all_results' %}"><i data-lucide="notebook-tabs"></i><span>All Results</span></a>
         <a class="sidebar-link {% if request.resolver_match.view_name == 'academics:manage_subjects' %}active{% endif %}" href="{% url 'academics:manage_subjects' %}"><i data-lucide="book-open"></i><span>Subjects</span></a>
         <a class="sidebar-link {% if request.resolver_match.view_name == 'academics:manage_grading_scale' %}active{% endif %}" href="{% url 'academics:manage_grading_scale' %}"><i data-lucide="list-ordered"></i><span>Grading Scale</span></a>

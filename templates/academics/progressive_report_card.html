@@ -46,7 +46,7 @@
     <p>Head teacher's report: __________________________________________________</p>
     <h6 class="mt-4"><u>REQUIREMENTS</u></h6>
     <p>A ream of paper, 4 toilet papers, 2 brooms, a bucket of detergent, enough books, enough pens, mathematical set and atlas.</p>
-    {% if fee_status %}<p>School fees balance: <strong>{{ fee_status.balance|ugx }}</strong></p>{% endif %}
+    {% if fee_status %}<p>Previous fees balance: <strong>{{ fee_status.previous_balance|ugx }}</strong> &nbsp;|&nbsp; Total fees balance: <strong>{{ fee_status.balance|ugx }}</strong></p>{% endif %}
     <p class="mt-4">I have seen and read the report, sign __________________ Parent/guardian</p>
     <p>Date __________________</p>
 </section>

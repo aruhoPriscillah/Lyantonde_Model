@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from accounts.decorators import role_required
 from accounts.models import User
+from academics.models import term_is_closed
 from accounts.forms import StaffCreationForm
 from reportsapp.utils import export_excel, export_pdf
 from .forms import StudentForm, SchoolClassForm
@@ -143,6 +144,11 @@ def requirements_register(request):
     ).order_by("admission_number")) if selected_class else []
 
     if request.method == "POST" and selected_class and requirements:
+        if term_is_closed(term, year):
+            messages.error(request, "This term is closed. Requirements cannot be changed.")
+            return redirect(
+                f"{request.path}?class_id={selected_class.id}&term={term}&year={year}&scholar_type={scholar_type}"
+            )
         requirement_ids = {requirement.id for requirement in requirements}
         student_ids = {student.id for student in students}
         checked = set()

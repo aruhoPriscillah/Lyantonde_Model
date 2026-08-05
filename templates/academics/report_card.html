@@ -49,8 +49,10 @@
     {% if fee_status %}
     <h5 class="mt-4">Fees &mdash; {{ term }} {{ year }}</h5>
     <p>
-        Expected: {{ fee_status.expected|ugx }} &nbsp;|&nbsp;
-        Paid: {{ fee_status.paid|ugx }} &nbsp;|&nbsp;
+        Previous Balance: {{ fee_status.previous_balance|ugx }} &nbsp;|&nbsp;
+        Current Fees: {{ fee_status.expected|ugx }} &nbsp;|&nbsp;
+        Total Due: {{ fee_status.total_due|ugx }} &nbsp;|&nbsp;
+        Paid This Term: {{ fee_status.paid|ugx }} &nbsp;|&nbsp;
         Balance: {{ fee_status.balance|ugx }} &nbsp;|&nbsp;
         {% if fee_status.is_defaulter %}
             <span class="badge badge-defaulter">Defaulter</span>

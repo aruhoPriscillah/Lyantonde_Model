@@ -50,7 +50,7 @@
 
     <p class="mt-4">Class Teacher's comment: ______________________________________________</p>
     <p>Headteacher's report: _________________________________________________</p>
-    {% if fee_status %}<p>School fees balance: <strong>{{ fee_status.balance|ugx }}</strong></p>{% endif %}
+    {% if fee_status %}<p>Previous fees balance: <strong>{{ fee_status.previous_balance|ugx }}</strong> &nbsp;|&nbsp; Total fees balance: <strong>{{ fee_status.balance|ugx }}</strong></p>{% endif %}
     <p class="mt-4">I have seen and read the report. Parent/Guardian: _________________________</p>
 </section>
 {% endblock %}

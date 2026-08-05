@@ -276,7 +276,8 @@ def export_report_card_pdf(filename, student, term_label, year, subject_rows, to
     if fee_status is not None:
         elements.append(Spacer(1, 10))
         fee_line = (
-            f"<b>Fees ({term_label} {year}):</b> Expected {format_ugx(fee_status['expected'])}, "
+            f"<b>Fees ({term_label} {year}):</b> Previous {format_ugx(fee_status['previous_balance'])}, "
+            f"Current {format_ugx(fee_status['expected'])}, Total Due {format_ugx(fee_status['total_due'])}, "
             f"Paid {format_ugx(fee_status['paid'])}, Balance {format_ugx(fee_status['balance'])} "
             f"({'DEFAULTER' if fee_status['is_defaulter'] else 'Cleared'})"
         )
@@ -371,7 +372,8 @@ def export_nursery_report_card_pdf(
     if fee_status is not None:
         elements.append(Paragraph(
             f"Next term begins on: ____________________ &nbsp;&nbsp;&nbsp; "
-            f"School fees balance: <b>{format_ugx(fee_status['balance'])}</b>",
+            f"Previous fees balance: <b>{format_ugx(fee_status['previous_balance'])}</b> &nbsp;&nbsp; "
+            f"Total fees balance: <b>{format_ugx(fee_status['balance'])}</b>",
             styles["Normal"],
         ))
     elements.append(Spacer(1, 18))
@@ -465,7 +467,8 @@ def export_progressive_report_card_pdf(
     elements.append(Spacer(1, 12))
     if fee_status is not None:
         elements.append(Paragraph(
-            f"Next term begins on ____________________ &nbsp;&nbsp; School fees balance: "
+            f"Next term begins on ____________________ &nbsp;&nbsp; Previous fees balance: "
+            f"<b>{format_ugx(fee_status['previous_balance'])}</b> &nbsp;&nbsp; Total fees balance: "
             f"<b>{format_ugx(fee_status['balance'])}</b>", styles["Normal"]
         ))
     elements.append(Spacer(1, 16))

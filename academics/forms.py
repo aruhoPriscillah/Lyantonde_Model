@@ -1,5 +1,5 @@
 from django import forms
-from .models import GradingScale, Result, Subject
+from .models import AcademicTerm, GradingScale, Result, Subject
 from .subject_sets import subject_names_for_class
 
 class ResultForm(forms.ModelForm):
@@ -29,6 +29,19 @@ class SubjectForm(forms.ModelForm):
         model = Subject
         fields = ["name"]
         widgets = {"name": forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. Mathematics"})}
+
+class AcademicTermForm(forms.ModelForm):
+    class Meta:
+        model = AcademicTerm
+        fields = ["term", "year", "opens_on", "closes_on", "is_closed"]
+        widgets = {
+            "term": forms.Select(attrs={"class": "form-select"}),
+            "year": forms.NumberInput(attrs={"class": "form-control", "min": 2000}),
+            "opens_on": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "closes_on": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "is_closed": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
 
 class GradingScaleForm(forms.ModelForm):
     class Meta:

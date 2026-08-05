@@ -4,6 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 
 from accounts.decorators import role_required
 from accounts.models import User
+from academics.models import term_is_closed
 from reportsapp.utils import export_excel, export_pdf
 from students.models import Student
 from .forms import PaymentForm, FeeStructureForm, TermYearFilterForm, VaultFilterForm
@@ -80,6 +81,9 @@ def record_payment(request):
         form = PaymentForm(request.POST)
         if form.is_valid():
             payment = form.save(commit=False)
+            if term_is_closed(payment.term, payment.year):
+                form.add_error(None, "This term is closed. Payments cannot be changed.")
+                return render(request, "fees/record_payment.html", {"form": form})
             payment.received_by = request.user
             payment.save()
             messages.success(
@@ -126,12 +130,17 @@ def student_fee_detail(request, pk):
 @role_required(User.Role.BURSAR)
 def edit_payment(request, pk):
     payment = get_object_or_404(Payment, pk=pk)
+    original_term, original_year = payment.term, payment.year
     if request.method == "POST":
         form = PaymentForm(request.POST, instance=payment)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Payment updated.")
-            return redirect("fees:student_fee_detail", pk=payment.student.pk)
+            candidate = form.save(commit=False)
+            if term_is_closed(candidate.term, candidate.year) or term_is_closed(original_term, original_year):
+                form.add_error(None, "This term is closed. Payments cannot be changed.")
+            else:
+                candidate.save()
+                messages.success(request, "Payment updated.")
+                return redirect("fees:student_fee_detail", pk=payment.student.pk)
     else:
         form = PaymentForm(instance=payment)
     return render(request, "fees/edit_payment.html", {"form": form, "payment": payment})
@@ -142,8 +151,11 @@ def delete_payment(request, pk):
     payment = get_object_or_404(Payment, pk=pk)
     student_pk = payment.student.pk
     if request.method == "POST":
-        payment.delete()
-        messages.success(request, "Payment deleted.")
+        if term_is_closed(payment.term, payment.year):
+            messages.error(request, "This term is closed. Payments cannot be changed.")
+        else:
+            payment.delete()
+            messages.success(request, "Payment deleted.")
         return redirect("fees:student_fee_detail", pk=student_pk)
     return render(request, "fees/confirm_delete_payment.html", {"payment": payment})
 
@@ -153,9 +165,13 @@ def manage_fee_structure(request):
     if request.method == "POST":
         form = FeeStructureForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Fee structure saved.")
-            return redirect("fees:manage_fee_structure")
+            structure = form.save(commit=False)
+            if term_is_closed(structure.term, structure.year):
+                form.add_error(None, "This term is closed. Fee structures cannot be changed.")
+            else:
+                structure.save()
+                messages.success(request, "Fee structure saved.")
+                return redirect("fees:manage_fee_structure")
     else:
         form = FeeStructureForm(initial={"year": CURRENT_YEAR, "term": DEFAULT_TERM})
     structures = FeeStructure.objects.select_related("school_class").all()
@@ -164,12 +180,17 @@ def manage_fee_structure(request):
 @role_required(User.Role.BURSAR, User.Role.HEADTEACHER)
 def edit_fee_structure(request, pk):
     structure = get_object_or_404(FeeStructure, pk=pk)
+    original_term, original_year = structure.term, structure.year
     if request.method == "POST":
         form = FeeStructureForm(request.POST, instance=structure)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Fee structure updated.")
-            return redirect("fees:manage_fee_structure")
+            candidate = form.save(commit=False)
+            if term_is_closed(candidate.term, candidate.year) or term_is_closed(original_term, original_year):
+                form.add_error(None, "This term is closed. Fee structures cannot be changed.")
+            else:
+                candidate.save()
+                messages.success(request, "Fee structure updated.")
+                return redirect("fees:manage_fee_structure")
     else:
         form = FeeStructureForm(instance=structure)
     return render(request, "fees/edit_fee_structure.html", {"form": form, "structure": structure})
@@ -194,13 +215,15 @@ def _fee_report_rows(term, year, defaulters_only=False):
     rows_data = [fee_status_for_student(s, term, year) for s in students]
     if defaulters_only:
         rows_data = [r for r in rows_data if r["is_defaulter"]]
-    headers = ["Admission No.", "Name", "Class", "Expected", "Paid", "Balance", "Status"]
+    headers = ["Admission No.", "Name", "Class", "Previous Balance", "Current Fees", "Total Due", "Paid This Term", "Balance", "Status"]
     rows = [
         [
             r["student"].admission_number,
             r["student"].full_name,
             r["student"].school_class.name if r["student"].school_class else "-",
+            format_ugx(r["previous_balance"]),
             format_ugx(r["expected"]),
+            format_ugx(r["total_due"]),
             format_ugx(r["paid"]),
             format_ugx(r["balance"]),
             "DEFAULTER" if r["is_defaulter"] else "Cleared",

@@ -56,7 +56,22 @@ class Payment(models.Model):
 
 
 def fee_status_for_student(student, term, year):
-    """Return dict with expected, paid, balance, is_defaulter for one student/term/year."""
+    """Return current fees with the net balance from earlier periods carried forward."""
+    term_order = [choice[0] for choice in TERM_CHOICES]
+    current_term_index = term_order.index(term) if term in term_order else 0
+    earlier_terms = term_order[:current_term_index]
+    prior_period = models.Q(year__lt=year) | models.Q(year=year, term__in=earlier_terms)
+
+    previous_expected = FeeStructure.objects.filter(
+        prior_period,
+        school_class=student.school_class,
+        boarding_status=student.boarding_status,
+    ).aggregate(total=models.Sum("amount"))["total"] or 0
+    previous_paid = student.payments.filter(prior_period).aggregate(
+        total=models.Sum("amount")
+    )["total"] or 0
+    previous_balance = previous_expected - previous_paid
+
     try:
         structure = FeeStructure.objects.get(
             school_class=student.school_class,
@@ -72,15 +87,19 @@ def fee_status_for_student(student, term, year):
         total=models.Sum("amount")
     )["total"] or 0
 
-    balance = expected - paid
+    total_due = previous_balance + expected
+    current_balance = expected - paid
+    balance = total_due - paid
     return {
         "student": student,
         "expected": expected,
         "paid": paid,
+        "previous_balance": previous_balance,
+        "total_due": total_due,
+        "current_balance": current_balance,
         "balance": balance,
         "is_defaulter": balance > 0,
     }
-
 
 def fee_report_for_class(school_class, term, year):
     """Fee status for every active student in a class."""

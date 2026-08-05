@@ -1,7 +1,48 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 from students.models import Student
 from fees.models import TERM_CHOICES
+
+
+
+
+class AcademicTerm(models.Model):
+    term = models.CharField(max_length=10, choices=TERM_CHOICES)
+    year = models.PositiveIntegerField()
+    opens_on = models.DateField()
+    closes_on = models.DateField()
+    is_closed = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ("term", "year")
+        ordering = ["-year", "term"]
+
+    def clean(self):
+        if self.opens_on and self.closes_on and self.closes_on < self.opens_on:
+            raise ValidationError({"closes_on": "Closing date cannot be before opening date."})
+
+    @property
+    def effectively_closed(self):
+        return self.is_closed or timezone.localdate() > self.closes_on
+
+    @property
+    def status(self):
+        today = timezone.localdate()
+        if self.effectively_closed:
+            return "Closed"
+        if today < self.opens_on:
+            return "Scheduled"
+        return "Open"
+
+    def __str__(self):
+        return f"{self.get_term_display()} {self.year}"
+
+
+def term_is_closed(term, year):
+    configured_term = AcademicTerm.objects.filter(term=term, year=year).first()
+    return configured_term.effectively_closed if configured_term else False
 
 
 class Subject(models.Model):
