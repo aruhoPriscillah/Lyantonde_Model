@@ -70,6 +70,14 @@ class Student(models.Model):
         OTHER = "OTHER", "Other"
 
     admission_number = models.CharField(max_length=20, unique=True, editable=False)
+    lin = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True,
+        unique=True,
+        verbose_name="LIN (optional)",
+        help_text="Learner Identification Number, if available.",
+    )
     photo = models.ImageField(upload_to="student_photos/", blank=True, null=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -110,6 +118,7 @@ class Student(models.Model):
         return f"{self.first_name} {self.last_name}"
 
     def save(self, *args, **kwargs):
+        self.lin = (self.lin or "").strip() or None
         self.nin = (self.nin or "").strip().upper()
         if not self.admission_number:
             self.admission_number = self._generate_admission_number()

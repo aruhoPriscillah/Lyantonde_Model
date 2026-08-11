@@ -221,6 +221,52 @@ class RequirementsRegisterTests(TestCase):
         self.assertContains(day_response, "4 toilet rolls")
         self.assertNotContains(day_response, "Mattress, blanket")
 
+    def test_teacher_can_record_requirements_for_assigned_class(self):
+        teacher = User.objects.create_user(
+            username="class-teacher", password="test-password", role=User.Role.TEACHER
+        )
+        self.school_class.class_teacher = teacher
+        self.school_class.save(update_fields=["class_teacher"])
+        requirement = Requirement.objects.filter(
+            class_group=Requirement.ClassGroup.P4_P7, scholar_type="DAY"
+        ).first()
+        self.client.force_login(teacher)
+
+        response = self.client.post(reverse("students:requirements_register"), {
+            "class_id": self.school_class.pk,
+            "term": "TERM1",
+            "year": 2026,
+            "scholar_type": "DAY",
+            "brought": [f"{self.student.pk}:{requirement.pk}"],
+        })
+
+        self.assertEqual(response.status_code, 302)
+        record = StudentRequirement.objects.get(
+            student=self.student, requirement=requirement, term="TERM1", year=2026
+        )
+        self.assertTrue(record.brought)
+        self.assertEqual(record.recorded_by, teacher)
+
+    def test_teacher_cannot_access_another_class_requirements(self):
+        teacher = User.objects.create_user(
+            username="restricted-teacher", password="test-password", role=User.Role.TEACHER
+        )
+        assigned_class = SchoolClass.objects.create(name="P5", class_teacher=teacher)
+        self.client.force_login(teacher)
+
+        response = self.client.get(reverse("students:requirements_register"), {
+            "class_id": self.school_class.pk, "term": "TERM1", "year": 2026,
+        })
+        export_response = self.client.get(reverse("students:export_requirements_register"), {
+            "class_id": self.school_class.pk, "term": "TERM1", "year": 2026,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["selected_class"])
+        self.assertContains(response, assigned_class.name)
+        self.assertNotContains(response, self.student.full_name)
+        self.assertEqual(export_response.status_code, 404)
+
 class StudentSearchTests(TestCase):
     def setUp(self):
         headteacher = User.objects.create_user(

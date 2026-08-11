@@ -2,6 +2,9 @@ from decimal import Decimal
 
 from django.template import Context, Template
 from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
+
+from accounts.models import User
 
 from students.models import SchoolClass, Student
 
@@ -117,3 +120,35 @@ class PaymentAmountValidationTests(TestCase):
 
     def test_accepts_positive_payment(self):
         self.assertTrue(self.form_for_amount("0.01").is_valid())
+class BursarDashboardSearchTests(TestCase):
+    def setUp(self):
+        bursar = User.objects.create_user(
+            username="search-bursar", password="test-password", role=User.Role.BURSAR
+        )
+        school_class = SchoolClass.objects.create(name="Search Fee Class")
+        self.jane = Student.objects.create(
+            first_name="Jane", last_name="Nakato", gender="F", date_of_birth="2015-01-01",
+            school_class=school_class, guardian_name="Guardian", guardian_phone="0700000000",
+        )
+        self.john = Student.objects.create(
+            first_name="John", last_name="Kato", gender="M", date_of_birth="2015-02-01",
+            school_class=school_class, guardian_name="Guardian", guardian_phone="0700000001",
+        )
+        self.client.force_login(bursar)
+
+    def test_searches_by_partial_admission_number(self):
+        response = self.client.get(
+            reverse("fees:bursar_dashboard"), {"q": self.john.admission_number[-3:]}
+        )
+
+        self.assertContains(response, self.john.full_name)
+        self.assertNotContains(response, self.jane.full_name)
+
+    def test_searches_by_multi_part_name(self):
+        response = self.client.get(reverse("fees:bursar_dashboard"), {"q": "jane nak"})
+
+        self.assertContains(response, self.jane.full_name)
+        self.assertNotContains(response, self.john.full_name)
+        self.assertContains(response, 'id="pupil-search"')
+        self.assertContains(response, 'placeholder="Search by pupil name or admission number"')
+        self.assertContains(response, 'value="jane nak"')

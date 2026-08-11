@@ -12,6 +12,7 @@ class StudentForm(forms.ModelForm):
         model = Student
         fields = [
             "photo",
+            "lin",
             "first_name",
             "last_name",
             "gender",
@@ -28,6 +29,11 @@ class StudentForm(forms.ModelForm):
         ]
         widgets = {
             "photo": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "lin": forms.TextInput(attrs={
+                "class": "form-control",
+                "maxlength": 30,
+                "autocomplete": "off",
+            }),
             "first_name": forms.TextInput(attrs={"class": "form-control"}),
             "last_name": forms.TextInput(attrs={"class": "form-control"}),
             "gender": forms.Select(attrs={"class": "form-select"}),

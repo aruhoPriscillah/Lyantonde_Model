@@ -3,7 +3,11 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div><h3 class="mb-1">Requirements Register</h3><div class="text-muted">{{ selected_class|default:"Select a class" }} &middot; {{ term }} {{ year }} &middot; {% if scholar_type == "BOARDING" %}Boarding Scholars{% else %}Day Scholars{% endif %}</div></div>
+    {% if user.role == "TEACHER" %}
+    <a href="{% url 'academics:teacher_dashboard' %}" class="btn btn-outline-primary">Dashboard</a>
+    {% else %}
     <a href="{% url 'students:headteacher_dashboard' %}" class="btn btn-outline-primary">Dashboard</a>
+    {% endif %}
 </div>
 
 {% if selected_class %}

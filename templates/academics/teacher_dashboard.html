@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Teacher Dashboard{% endblock %}
 {% block content %}
-<h3 class="mb-4">Teacher Dashboard {% if school_class %}&mdash; {{ school_class }}{% endif %}</h3>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0">Teacher Dashboard {% if school_class %}&mdash; {{ school_class }}{% endif %}</h3>
+    {% if school_class %}<a href="{% url 'students:requirements_register' %}?class_id={{ school_class.id }}" class="btn btn-primary">Requirements Register</a>{% endif %}
+</div>
 
 {% if not school_class %}
     <div class="alert alert-warning">You are not currently assigned as class teacher for any class. Contact the headteacher.</div>

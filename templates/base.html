@@ -208,6 +208,7 @@
     {% elif user.role == "TEACHER" %}
         <div class="sidebar-section">Teaching</div>
         <a class="sidebar-link {% if request.resolver_match.view_name == 'academics:teacher_dashboard' %}active{% endif %}" href="{% url 'academics:teacher_dashboard' %}"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
+        <a class="sidebar-link {% if request.resolver_match.view_name == 'students:requirements_register' %}active{% endif %}" href="{% url 'students:requirements_register' %}"><i data-lucide="clipboard-check"></i><span>Requirements</span></a>
         <a class="sidebar-link {% if request.resolver_match.view_name == 'academics:add_result' %}active{% endif %}" href="{% url 'academics:add_result' %}"><i data-lucide="file-plus-2"></i><span>Add Single Result</span></a>
         <a class="sidebar-link {% if request.resolver_match.view_name == 'academics:bulk_add_results' %}active{% endif %}" href="{% url 'academics:bulk_add_results' %}"><i data-lucide="sheet"></i><span>Add Class Results</span></a>
         <a class="sidebar-link {% if request.resolver_match.view_name == 'academics:class_results' %}active{% endif %}" href="{% url 'academics:class_results' %}"><i data-lucide="table-properties"></i><span>View Results</span></a>

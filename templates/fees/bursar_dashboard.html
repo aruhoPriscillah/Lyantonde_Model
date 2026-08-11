@@ -12,6 +12,7 @@
         <form method="get" class="row g-2 align-items-end">
             <input type="hidden" name="term" value="{{ term }}">
             <input type="hidden" name="year" value="{{ year }}">
+            <input type="hidden" name="q" value="{{ search_query }}">
             <div class="col-auto">
                 <label class="form-label small text-white-50 mb-1">Period</label>
                 {{ vault_form.period }}
@@ -75,9 +76,14 @@
 </div>
 
 <form method="get" class="row g-2 mb-3">
+    <div class="col-md-5">
+        <label class="visually-hidden" for="pupil-search">Search pupils</label>
+        <input id="pupil-search" class="form-control" type="search" name="q" value="{{ search_query }}" placeholder="Search by pupil name or admission number">
+    </div>
     <div class="col-auto">{{ filter_form.term }}</div>
     <div class="col-auto">{{ filter_form.year }}</div>
-    <div class="col-auto"><button class="btn btn-secondary" type="submit">Filter</button></div>
+    <div class="col-auto"><button class="btn btn-secondary" type="submit">Search / Filter</button></div>
+    {% if search_query %}<div class="col-auto"><a class="btn btn-link" href="?term={{ term }}&year={{ year }}">Clear</a></div>{% endif %}
     <div class="col-auto ms-auto">
         <a href="{% url 'fees:export_fees_report' 'pdf' %}?term={{ term }}&year={{ year }}" class="btn btn-outline-danger btn-sm">Export PDF</a>
         <a href="{% url 'fees:export_fees_report' 'xlsx' %}?term={{ term }}&year={{ year }}" class="btn btn-outline-success btn-sm">Export Excel</a>
@@ -119,7 +125,7 @@
                     </td>
                 </tr>
             {% empty %}
-                <tr><td colspan="10" class="text-center text-muted">No students found.</td></tr>
+                <tr><td colspan="10" class="text-center text-muted">{% if search_query %}No pupils match "{{ search_query }}".{% else %}No students found.{% endif %}</td></tr>
             {% endfor %}
             </tbody>
         </table>

@@ -118,9 +118,11 @@ def _requirement_group(school_class):
     return None
 
 
-@role_required(User.Role.HEADTEACHER)
+@role_required(User.Role.HEADTEACHER, User.Role.TEACHER)
 def requirements_register(request):
     classes = SchoolClass.objects.all()
+    if request.user.role == User.Role.TEACHER:
+        classes = classes.filter(class_teacher=request.user)
     class_id = request.POST.get("class_id") if request.method == "POST" else request.GET.get("class_id")
     selected_class = classes.filter(pk=class_id).first() if class_id else classes.first()
     filter_data = (request.POST if request.method == "POST" else request.GET).copy()
@@ -211,9 +213,12 @@ def requirements_register(request):
     })
 
 
-@role_required(User.Role.HEADTEACHER)
+@role_required(User.Role.HEADTEACHER, User.Role.TEACHER)
 def export_requirements_register(request):
-    school_class = get_object_or_404(SchoolClass, pk=request.GET.get("class_id"))
+    classes = SchoolClass.objects.all()
+    if request.user.role == User.Role.TEACHER:
+        classes = classes.filter(class_teacher=request.user)
+    school_class = get_object_or_404(classes, pk=request.GET.get("class_id"))
     scholar_type = request.GET.get("scholar_type", Student.BoardingStatus.DAY)
     if scholar_type not in Student.BoardingStatus.values:
         scholar_type = Student.BoardingStatus.DAY

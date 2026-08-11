@@ -11,6 +11,11 @@
                 {{ form.photo }}
             </div>
             <div class="col-md-6 mb-3">
+                <label class="form-label">{{ form.lin.label }}</label>
+                {{ form.lin }}
+                {% if form.lin.help_text %}<div class="form-text">{{ form.lin.help_text }}</div>{% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
                 <label class="form-label">First Name</label>
                 {{ form.first_name }}
             </div>

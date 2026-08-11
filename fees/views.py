@@ -10,7 +10,7 @@ from students.models import Student
 from .forms import PaymentForm, FeeStructureForm, TermYearFilterForm, VaultFilterForm
 from .models import all_defaulters, fee_status_for_student, FeeStructure, Payment
 from .utils import format_ugx
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from .models import all_defaulters, fee_status_for_student, FeeStructure, Payment
 
 
@@ -22,6 +22,13 @@ DEFAULT_TERM = "TERM1"
 @role_required(User.Role.BURSAR, User.Role.HEADTEACHER)
 def bursar_dashboard(request):
     students = Student.objects.select_related("school_class").filter(is_active=True)
+    search_query = request.GET.get("q", "").strip()
+    for token in search_query.split():
+        students = students.filter(
+            Q(admission_number__icontains=token)
+            | Q(first_name__icontains=token)
+            | Q(last_name__icontains=token)
+        )
     filter_form = TermYearFilterForm(
         request.GET or {"term": DEFAULT_TERM, "year": CURRENT_YEAR}
     )
@@ -62,6 +69,7 @@ def bursar_dashboard(request):
 
     context = {
         "fee_rows": fee_rows,
+        "search_query": search_query,
         "filter_form": filter_form,
         "term": term,
         "year": year,
